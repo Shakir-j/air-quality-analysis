@@ -1,0 +1,55 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+*.pyc
+
+# Virtual environments
+venv/
+env/
+.env/
+.venv/
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb
+
+# Data — raw data is large; keep only if small enough for Git
+# Uncomment the next line if you don't want to commit raw data:
+# data/raw/
+
+# Processed data (large files)
+data/processed/*.parquet
+data/processed/*.feather
+data/processed/*.h5
+
+# Models (large binaries — keep only final lightweight ones if desired)
+# models/*.pkl is intentionally tracked
+
+# Reports
+reports/figures/*.png
+reports/figures/*.svg
+
+# Streamlit cache
+.streamlit/
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# Env files
+.env
+*.env
+secrets.toml
