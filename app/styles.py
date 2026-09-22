@@ -235,7 +235,6 @@ PLOTLY_DARK_LAYOUT = dict(
         zerolinecolor="rgba(255, 255, 255, 0.08)",
         tickfont=dict(color="#94a3b8"),
     ),
-    margin=dict(l=40, r=30, t=50, b=40),
     legend=dict(
         bgcolor="rgba(15, 23, 42, 0.6)",
         bordercolor="rgba(255, 255, 255, 0.08)",
