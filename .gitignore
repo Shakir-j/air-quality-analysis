@@ -18,23 +18,18 @@ env/
 
 # Jupyter
 .ipynb_checkpoints/
-*.ipynb
 
-# Data — raw data is large; keep only if small enough for Git
-# Uncomment the next line if you don't want to commit raw data:
-# data/raw/
+# Data — large raw and processed files (kept local, not pushed to GitHub)
+data/raw/
+data/processed/
+!data/raw/.gitkeep
+!data/processed/.gitkeep
 
-# Processed data (large files)
-data/processed/*.parquet
-data/processed/*.feather
-data/processed/*.h5
-
-# Models (large binaries — keep only final lightweight ones if desired)
-# models/*.pkl is intentionally tracked
-
-# Reports
+# Large pre-rendered figures (>100MB files like boxplots)
+reports/figures/*.html
 reports/figures/*.png
 reports/figures/*.svg
+!reports/figures/.gitkeep
 
 # Streamlit cache
 .streamlit/
