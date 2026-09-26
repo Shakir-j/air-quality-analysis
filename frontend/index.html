@@ -1,0 +1,607 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AIRWISE | Air Quality Analysis & Prediction</title>
+  <meta name="description" content="Explore air-quality patterns across India, understand pollution trends, and predict upcoming air-quality levels from historical environmental data.">
+  
+  <!-- Local Vendor Stylesheets (100% Offline) -->
+  <link rel="stylesheet" href="/static/vendor/leaflet.css">
+  
+  <!-- Custom Design System -->
+  <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+
+  <!-- ── Top Navigation Bar ─────────────────────────────────────────────── -->
+  <header class="navbar">
+    <div class="nav-container">
+      <div class="brand-group" onclick="navigateTo('home')">
+        <div class="brand-logo">
+          <span class="logo-dot"></span>
+          <span class="brand-name">AIRWISE</span>
+        </div>
+        <span class="brand-divider"></span>
+        <span class="brand-tagline">Air Quality Analysis & Prediction</span>
+      </div>
+
+      <nav class="nav-links" id="main-nav">
+        <a href="#home" class="nav-item active" data-tab="home">Home</a>
+        <a href="#air-quality" class="nav-item" data-tab="air-quality">Air Quality</a>
+        <a href="#explore" class="nav-item" data-tab="explore">Explore</a>
+        <a href="#insights" class="nav-item" data-tab="insights">Insights</a>
+        <a href="#prediction" class="nav-item" data-tab="prediction">Prediction</a>
+      </nav>
+
+      <div class="nav-status-badge">
+        <span class="status-indicator"></span>
+        <span class="status-text">CPCB Historical Network</span>
+      </div>
+
+      <!-- Mobile hamburger button -->
+      <button class="nav-hamburger" id="nav-hamburger" aria-label="Open navigation menu" onclick="toggleMobileNav()">
+        <span></span>
+        <span></span>
+        <span></span>
+      </button>
+    </div>
+  </header>
+
+  <!-- ── Main Content Area ──────────────────────────────────────────────── -->
+  <main class="main-content">
+
+    <!-- 1. HOME VIEW -->
+    <section id="section-home" class="page-section active">
+      <!-- Hero Section -->
+      <div class="hero-section">
+        <div class="hero-content">
+          <span class="hero-eyebrow">Environmental Data Platform</span>
+          <h1 class="hero-title">Understand the air around you.</h1>
+          <p class="hero-subtitle">
+            Explore air-quality patterns across India, understand pollution trends, and predict upcoming air-quality levels from historical environmental data.
+          </p>
+
+          <!-- Location Search Control -->
+          <div class="location-search-box">
+            <div class="search-input-wrapper">
+              <svg class="search-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+              <select id="home-city-select" class="location-dropdown" aria-label="Search a city or monitoring station">
+                <option value="" disabled selected>Search a city or monitoring station...</option>
+                <!-- Populated via JS -->
+              </select>
+            </div>
+            <button class="btn btn-primary" onclick="applyHomeCity()">View Location</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Featured Air Quality Overview -->
+      <div class="container section-gap">
+        <div class="section-header">
+          <div>
+            <h2 class="section-title" id="featured-city-heading">Delhi Air Quality Snapshot</h2>
+            <p class="section-desc">Latest available recorded observation from the Central Pollution Control Board (CPCB) monitoring network.</p>
+          </div>
+          <span class="badge badge-neutral" id="featured-timestamp-badge">Recorded Observation</span>
+        </div>
+
+        <div class="featured-aqi-card" id="featured-aqi-card">
+          <!-- Populated via home.js -->
+          <div class="aqi-loading-placeholder">Loading air quality data...</div>
+        </div>
+      </div>
+
+      <!-- Air Quality Across India (Interactive Map) -->
+      <div class="container section-gap">
+        <div class="section-header">
+          <div>
+            <h2 class="section-title">Air quality across India</h2>
+            <p class="section-desc">Select any metropolitan hub to inspect station coverage, dominant pollutant levels, and air quality classifications.</p>
+          </div>
+          <div class="map-legend">
+            <span class="legend-chip good"><span class="chip-dot"></span> Good (0–50)</span>
+            <span class="legend-chip satisfactory"><span class="chip-dot"></span> Satisfactory (51–100)</span>
+            <span class="legend-chip moderate"><span class="chip-dot"></span> Moderate (101–200)</span>
+            <span class="legend-chip poor"><span class="chip-dot"></span> Poor (201–300)</span>
+            <span class="legend-chip very-poor"><span class="chip-dot"></span> Very Poor (301–400)</span>
+            <span class="legend-chip severe"><span class="chip-dot"></span> Severe (401–500)</span>
+          </div>
+        </div>
+
+        <div class="map-card">
+          <div id="india-map" class="interactive-map-container"></div>
+          <div class="map-detail-panel" id="map-detail-panel">
+            <div class="map-panel-placeholder">Click on any city marker on the map to inspect location metrics.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- How is air quality changing? (Trend Chart) -->
+      <div class="container section-gap">
+        <div class="section-header">
+          <div>
+            <h2 class="section-title">How is air quality changing?</h2>
+            <p class="section-desc" id="home-trend-subtitle">Historical pollution trajectory for the selected metropolitan center.</p>
+          </div>
+          <div class="control-group">
+            <button class="btn btn-outline btn-sm active" onclick="switchHomeTrendPollutant('PM2.5', this)">PM2.5</button>
+            <button class="btn btn-outline btn-sm" onclick="switchHomeTrendPollutant('PM10', this)">PM10</button>
+            <button class="btn btn-outline btn-sm" onclick="switchHomeTrendPollutant('NO2', this)">NO₂</button>
+          </div>
+        </div>
+
+        <div class="chart-card">
+          <div id="home-trend-chart" class="chart-box"></div>
+        </div>
+      </div>
+
+      <!-- Explore what the data reveals (4 Insight Cards) -->
+      <div class="container section-gap">
+        <div class="section-header">
+          <div>
+            <h2 class="section-title">Explore what the data reveals</h2>
+            <p class="section-desc">Key empirical findings derived from over 4.3 million hourly observations across Indian cities.</p>
+          </div>
+          <button class="btn btn-secondary btn-sm" onclick="navigateTo('insights')">View Full Analysis &rarr;</button>
+        </div>
+
+        <div class="insights-grid" id="home-insights-grid">
+          <!-- Populated via home.js -->
+        </div>
+      </div>
+    </section>
+
+    <!-- 2. AIR QUALITY VIEW -->
+    <section id="section-air-quality" class="page-section">
+      <div class="container page-header">
+        <h1 class="page-title">Location Air Quality</h1>
+        <p class="page-subtitle">Detailed atmospheric analysis and pollutant concentration breakdown for monitored stations.</p>
+      </div>
+
+      <!-- Controls -->
+      <div class="container">
+        <div class="controls-bar">
+          <div class="control-item">
+            <label for="aq-city-select" class="control-label">Location (City)</label>
+            <select id="aq-city-select" class="form-select" onchange="onAirQualityCityChange()">
+              <!-- Populated via JS -->
+            </select>
+          </div>
+
+          <div class="control-item">
+            <label for="aq-station-select" class="control-label">Monitoring Station</label>
+            <select id="aq-station-select" class="form-select" onchange="onAirQualityStationChange()">
+              <option value="all">All Stations (City Average)</option>
+            </select>
+          </div>
+
+          <div class="control-item">
+            <label for="aq-pollutant-select" class="control-label">Focus Pollutant</label>
+            <select id="aq-pollutant-select" class="form-select" onchange="onAirQualityPollutantChange()">
+              <option value="PM2.5">PM2.5 (Fine Particulates)</option>
+              <option value="PM10">PM10 (Coarse Particulates)</option>
+              <option value="NO2">NO₂ (Nitrogen Dioxide)</option>
+              <option value="SO2">SO₂ (Sulfur Dioxide)</option>
+              <option value="CO">CO (Carbon Monoxide)</option>
+              <option value="Ozone">O₃ (Ozone)</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- Main Indicator & Pollutant Cards -->
+      <div class="container section-gap">
+        <div class="aq-status-layout">
+          <!-- Left: Big AQI Gauge Card -->
+          <div class="aq-main-indicator" id="aq-main-indicator">
+            <!-- Populated via air_quality.js -->
+          </div>
+
+          <!-- Right: Pollutant Metric Cards Grid -->
+          <div class="pollutants-grid" id="aq-pollutant-cards">
+            <!-- Populated via air_quality.js -->
+          </div>
+        </div>
+      </div>
+
+      <!-- Recent Trend Line Chart -->
+      <div class="container section-gap">
+        <div class="section-header">
+          <div>
+            <h2 class="section-title">Recent Trend</h2>
+            <p class="section-desc">Hourly recorded pollution progression over the latest available 48-hour monitoring window.</p>
+          </div>
+        </div>
+        <div class="chart-card">
+          <div id="aq-recent-trend-chart" class="chart-box"></div>
+        </div>
+      </div>
+
+      <!-- Pollution Breakdown & Diurnal Curve -->
+      <div class="container section-gap">
+        <div class="section-header">
+          <div>
+            <h2 class="section-title">Pollution breakdown & daily cycle</h2>
+            <p class="section-desc">Examining how pollution levels fluctuate across the 24 hours of a day due to traffic and atmospheric dynamics.</p>
+          </div>
+        </div>
+        <div class="dual-chart-grid">
+          <div class="chart-card">
+            <h3 class="chart-card-title">Average Hourly Cycle (00:00 to 23:00)</h3>
+            <div id="aq-diurnal-chart" class="chart-box-sm"></div>
+          </div>
+          <div class="chart-card">
+            <h3 class="chart-card-title">Pollutant Proportions</h3>
+            <div id="aq-breakdown-bar" class="chart-box-sm"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Historical Air Quality Selector -->
+      <div class="container section-gap">
+        <div class="section-header">
+          <div>
+            <h2 class="section-title">Historical air quality</h2>
+            <p class="section-desc">Explore multi-year air quality evolution across months and years.</p>
+          </div>
+          <div class="control-group">
+            <button class="btn btn-outline btn-sm active" id="btn-hist-monthly" onclick="switchHistoricalView('monthly')">Monthly Trend</button>
+            <button class="btn btn-outline btn-sm" id="btn-hist-yearly" onclick="switchHistoricalView('yearly')">Yearly Comparison</button>
+          </div>
+        </div>
+        <div class="chart-card">
+          <div id="aq-historical-chart" class="chart-box"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 3. EXPLORE VIEW -->
+    <section id="section-explore" class="page-section">
+      <div class="container page-header">
+        <h1 class="page-title">Explore Air Quality Patterns</h1>
+        <p class="page-subtitle">Interactive analytical tools to investigate regional differences, seasonal patterns, and inter-pollutant dynamics.</p>
+      </div>
+
+      <!-- Explorer Controls -->
+      <div class="container">
+        <div class="controls-bar">
+          <div class="control-item">
+            <label for="exp-pollutant" class="control-label">Pollutant</label>
+            <select id="exp-pollutant" class="form-select" onchange="renderExploreViews()">
+              <option value="PM2.5">PM2.5</option>
+              <option value="PM10">PM10</option>
+              <option value="NO2">NO₂</option>
+              <option value="SO2">SO₂</option>
+              <option value="CO">CO</option>
+              <option value="Ozone">Ozone</option>
+            </select>
+          </div>
+
+          <div class="control-item">
+            <label for="exp-view-type" class="control-label">Exploration View</label>
+            <select id="exp-view-type" class="form-select" onchange="onExploreTabSwitch(this.value)">
+              <option value="city-comparison">Pollution levels by city</option>
+              <option value="time-trend">How pollution changed over time</option>
+              <option value="correlations">How pollutants move together</option>
+              <option value="city-pollutant-heatmap">City × Pollutant distribution</option>
+              <option value="seasonal-patterns">Seasonal pollution patterns</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- Dynamic Exploration Panel -->
+      <div class="container section-gap">
+        <div class="chart-card">
+          <div class="chart-header-group">
+            <h2 class="chart-card-title" id="explore-chart-title">Pollution levels across Indian cities</h2>
+            <p class="chart-card-subtitle" id="explore-chart-subtitle">Direct comparison of mean particulate concentrations across all 10 monitored metropolitan centers.</p>
+          </div>
+          <div id="explore-main-chart" class="chart-box-lg"></div>
+        </div>
+      </div>
+
+      <!-- Supporting Secondary Grid -->
+      <div class="container section-gap">
+        <div class="dual-chart-grid">
+          <div class="chart-card">
+            <h3 class="chart-card-title">Seasonal Variation Across Key Cities</h3>
+            <p class="chart-card-subtitle">Winter, Pre-Monsoon, Monsoon, and Post-Monsoon concentrations.</p>
+            <div id="explore-seasonal-chart" class="chart-box-sm"></div>
+          </div>
+          <div class="chart-card">
+            <h3 class="chart-card-title">Inter-Pollutant Correlation</h3>
+            <p class="chart-card-subtitle">Relationships between particulates, combustion gases, and weather variables.</p>
+            <div id="explore-corr-chart" class="chart-box-sm"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 4. INSIGHTS VIEW -->
+    <section id="section-insights" class="page-section">
+      <div class="container page-header">
+        <h1 class="page-title">What the Data Tells Us</h1>
+        <p class="page-subtitle">Empirical findings and atmospheric discoveries computed directly from 13 years of air quality monitoring across India.</p>
+      </div>
+
+      <div class="container">
+        <!-- Story 1: Geographic Divide -->
+        <article class="insight-story-card section-gap">
+          <div class="story-layout">
+            <div class="story-narrative">
+              <span class="story-tag">Geographic Distribution</span>
+              <h2 class="story-title" id="story-hotspot-title">Indo-Gangetic Plains vs Peninsular Coastal Cities</h2>
+              <p class="story-body" id="story-hotspot-text">
+                Loading computed geographic findings...
+              </p>
+              <div class="stat-highlight-row" id="story-hotspot-stats">
+                <!-- Populated via insights.js -->
+              </div>
+            </div>
+            <div class="story-visual">
+              <div id="insight-hotspot-chart" class="chart-box-sm"></div>
+            </div>
+          </div>
+        </article>
+
+        <!-- Story 2: Winter Inversion -->
+        <article class="insight-story-card section-gap">
+          <div class="story-layout reversed">
+            <div class="story-narrative">
+              <span class="story-tag">Seasonal Meteorology</span>
+              <h2 class="story-title" id="story-season-title">The Winter Inversion Effect</h2>
+              <p class="story-body" id="story-season-text">
+                Loading seasonal dynamics findings...
+              </p>
+              <div class="stat-highlight-row" id="story-season-stats">
+                <!-- Populated via insights.js -->
+              </div>
+            </div>
+            <div class="story-visual">
+              <div id="insight-season-chart" class="chart-box-sm"></div>
+            </div>
+          </div>
+        </article>
+
+        <!-- Story 3: Commuter Waves -->
+        <article class="insight-story-card section-gap">
+          <div class="story-layout">
+            <div class="story-narrative">
+              <span class="story-tag">Diurnal Rhythms</span>
+              <h2 class="story-title" id="story-diurnal-title">Daily Commuter Traffic Waves</h2>
+              <p class="story-body" id="story-diurnal-text">
+                Loading daily cycle findings...
+              </p>
+              <div class="stat-highlight-row" id="story-diurnal-stats">
+                <!-- Populated via insights.js -->
+              </div>
+            </div>
+            <div class="story-visual">
+              <div id="insight-diurnal-chart" class="chart-box-sm"></div>
+            </div>
+          </div>
+        </article>
+
+        <!-- Story 4: Co-Pollutant Coupling -->
+        <article class="insight-story-card section-gap">
+          <div class="story-layout reversed">
+            <div class="story-narrative">
+              <span class="story-tag">Chemical Dynamics</span>
+              <h2 class="story-title" id="story-corr-title">Strong Co-Pollutant Coupling</h2>
+              <p class="story-body" id="story-corr-text">
+                Loading chemical correlation findings...
+              </p>
+              <div class="stat-highlight-row" id="story-corr-stats">
+                <!-- Populated via insights.js -->
+              </div>
+            </div>
+            <div class="story-visual">
+              <div id="insight-corr-chart" class="chart-box-sm"></div>
+            </div>
+          </div>
+        </article>
+
+        <!-- Story 5: Extreme Episodes -->
+        <article class="insight-story-card section-gap">
+          <div class="story-layout">
+            <div class="story-narrative full-width">
+              <span class="story-tag">Historical Records</span>
+              <h2 class="story-title">Worst Historical Smog Episodes</h2>
+              <p class="story-body" id="story-episodes-text">
+                Analysis of peak 24-hour PM2.5 concentrations recorded across the monitoring network.
+              </p>
+              <div class="table-container" id="story-episodes-table">
+                <!-- Populated via insights.js -->
+              </div>
+            </div>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <!-- 5. PREDICTION VIEW -->
+    <section id="section-prediction" class="page-section">
+      <div class="container page-header">
+        <h1 class="page-title">Predict Air Quality</h1>
+        <p class="page-subtitle">Estimate the upcoming air-quality level using available environmental observations.</p>
+      </div>
+
+      <div class="container">
+        <!-- Scenario Presets -->
+        <div class="presets-card">
+          <div class="presets-header">
+            <span class="presets-title">Quick Scenario Presets</span>
+            <span class="presets-subtitle">Load typical environmental baselines for quick evaluation:</span>
+          </div>
+          <div class="presets-buttons-grid">
+            <button class="btn btn-preset" onclick="loadPredictionPreset('delhi_winter')">Delhi (Winter Smog Episode)</button>
+            <button class="btn btn-preset" onclick="loadPredictionPreset('delhi_summer')">Delhi (Clear Summer Day)</button>
+            <button class="btn btn-preset" onclick="loadPredictionPreset('mumbai_moderate')">Mumbai (Coastal Breeze)</button>
+            <button class="btn btn-preset" onclick="loadPredictionPreset('bengaluru_clean')">Bengaluru (Satisfactory)</button>
+            <button class="btn btn-preset" onclick="loadPredictionPreset('kolkata_winter')">Kolkata (Winter Evening)</button>
+            <button class="btn btn-preset" onclick="loadPredictionPreset('lucknow_smog')">Lucknow (Post-Harvest Smog)</button>
+          </div>
+        </div>
+
+        <!-- Main Form & Prediction Output Grid -->
+        <div class="prediction-layout section-gap">
+          <!-- Left: Input Form -->
+          <div class="prediction-form-card">
+            <h2 class="panel-heading">Environmental & Meteorological Inputs</h2>
+            <form id="prediction-form" onsubmit="handlePredictionSubmit(event)">
+              <div class="form-grid">
+                <div class="form-group">
+                  <label for="pred-city" class="form-label">Location (City)</label>
+                  <select id="pred-city" class="form-input">
+                    <!-- Populated via JS -->
+                  </select>
+                </div>
+
+                <div class="form-group">
+                  <label for="pred-pm25" class="form-label">Current PM2.5 (µg/m³)*</label>
+                  <input type="number" id="pred-pm25" class="form-input" min="0" max="1000" step="any" value="120.0" required>
+                  <span class="input-hint">Recent observation (t)</span>
+                </div>
+
+                <div class="form-group">
+                  <label for="pred-pm25-lag2" class="form-label">PM2.5 2 Hours Ago (µg/m³)</label>
+                  <input type="number" id="pred-pm25-lag2" class="form-input" min="0" max="1000" step="any" value="115.0">
+                  <span class="input-hint">Observation at t-2h</span>
+                </div>
+
+                <div class="form-group">
+                  <label for="pred-pm25-lag3" class="form-label">PM2.5 3 Hours Ago (µg/m³)</label>
+                  <input type="number" id="pred-pm25-lag3" class="form-input" min="0" max="1000" step="any" value="110.0">
+                  <span class="input-hint">Observation at t-3h</span>
+                </div>
+
+                <div class="form-group">
+                  <label for="pred-no2" class="form-label">NO₂ (µg/m³)</label>
+                  <input type="number" id="pred-no2" class="form-input" min="0" max="500" step="any" value="45.0">
+                </div>
+
+                <div class="form-group">
+                  <label for="pred-co" class="form-label">CO (mg/m³)</label>
+                  <input type="number" id="pred-co" class="form-input" min="0" max="50" step="any" value="1.2">
+                </div>
+
+                <div class="form-group">
+                  <label for="pred-so2" class="form-label">SO₂ (µg/m³)</label>
+                  <input type="number" id="pred-so2" class="form-input" min="0" max="300" step="any" value="14.0">
+                </div>
+
+                <div class="form-group">
+                  <label for="pred-ozone" class="form-label">Ozone - O₃ (µg/m³)</label>
+                  <input type="number" id="pred-ozone" class="form-input" min="0" max="500" step="any" value="28.0">
+                </div>
+
+                <div class="form-group">
+                  <label for="pred-temp" class="form-label">Temperature (°C)</label>
+                  <input type="number" id="pred-temp" class="form-input" min="-20" max="60" step="any" value="22.0">
+                </div>
+
+                <div class="form-group">
+                  <label for="pred-rh" class="form-label">Relative Humidity (%)</label>
+                  <input type="number" id="pred-rh" class="form-input" min="0" max="100" step="any" value="65">
+                </div>
+
+                <div class="form-group">
+                  <label for="pred-ws" class="form-label">Wind Speed (m/s)</label>
+                  <input type="number" id="pred-ws" class="form-input" min="0" max="30" step="any" value="1.5">
+                </div>
+
+                <div class="form-group">
+                  <label for="pred-hour" class="form-label">Hour of Day (24h)</label>
+                  <select id="pred-hour" class="form-input">
+                    <!-- Populated via JS -->
+                  </select>
+                </div>
+
+                <div class="form-group">
+                  <label for="pred-month" class="form-label">Month of Year</label>
+                  <select id="pred-month" class="form-input">
+                    <option value="1">January</option>
+                    <option value="2">February</option>
+                    <option value="3">March</option>
+                    <option value="4">April</option>
+                    <option value="5">May</option>
+                    <option value="6">June</option>
+                    <option value="7">July</option>
+                    <option value="8">August</option>
+                    <option value="9">September</option>
+                    <option value="10">October</option>
+                    <option value="11" selected>November</option>
+                    <option value="12">December</option>
+                  </select>
+                </div>
+
+                <div class="form-group">
+                  <label for="pred-weekend" class="form-label">Day Type</label>
+                  <select id="pred-weekend" class="form-input">
+                    <option value="0" selected>Weekday</option>
+                    <option value="1">Weekend</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="form-actions">
+                <button type="button" class="btn btn-primary btn-lg" id="btn-predict" onclick="submitPredictionForm()">
+                  <span>Predict Air Quality</span>
+                </button>
+              </div>
+            </form>
+          </div>
+
+          <!-- Right: Prediction Result Display -->
+          <div class="prediction-result-panel" id="prediction-result-panel">
+            <div class="result-placeholder">
+              <div class="placeholder-icon">🔮</div>
+              <h3>Ready to Forecast</h3>
+              <p>Adjust the environmental values or select a preset scenario, then click <strong>Predict Air Quality</strong> to generate a 1-hour ahead forecast.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ── Footer ─────────────────────────────────────────────────────────── -->
+  <footer class="footer">
+    <div class="container footer-content">
+      <div class="footer-left">
+        <div class="footer-brand">AIRWISE</div>
+        <p class="footer-desc">
+          Environmental intelligence and predictive surveillance platform analyzing 13 years of continuous ambient air quality records across India.
+        </p>
+        <p class="footer-provenance">
+          Dataset: Central Pollution Control Board (CPCB) monitoring stations (2010–2023). 130 active stations across 10 major metropolitan centers.
+        </p>
+      </div>
+      <div class="footer-right">
+        <div class="footer-links">
+          <a href="#home" onclick="navigateTo('home')">Home</a>
+          <a href="#air-quality" onclick="navigateTo('air-quality')">Air Quality</a>
+          <a href="#explore" onclick="navigateTo('explore')">Explore</a>
+          <a href="#insights" onclick="navigateTo('insights')">Insights</a>
+          <a href="#prediction" onclick="navigateTo('prediction')">Prediction</a>
+        </div>
+        <p class="footer-copy">&copy; 2026 AIRWISE. All environmental records derived from official CPCB open data.</p>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Local Scripts (100% Offline) -->
+  <script src="/static/vendor/leaflet.js"></script>
+  <script src="/static/vendor/plotly.min.js"></script>
+  
+  <script src="/js/app.js?v=2.0"></script>
+  <script src="/js/home.js?v=2.0"></script>
+  <script src="/js/air_quality.js?v=2.0"></script>
+  <script src="/js/explore.js?v=2.0"></script>
+  <script src="/js/insights.js?v=2.0"></script>
+  <script src="/js/prediction.js?v=2.0"></script>
+</body>
+</html>

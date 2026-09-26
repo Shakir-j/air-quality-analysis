@@ -230,10 +230,10 @@ def preprocess(
         print(f"\n  === CLEAN DATASET SUMMARY ===")
         print(f"  Rows: {len(df):,}")
         print(f"  Columns: {len(df.columns)}")
-        print(f"  Date range: {df['timestamp'].min()} → {df['timestamp'].max()}")
+        print(f"  Date range: {df['timestamp'].min()} -> {df['timestamp'].max()}")
         print(f"  Cities: {df['city'].nunique()}")
         print(f"  Stations: {df['station_id'].nunique()}")
-        print(f"  PM2.5 — mean: {pm25.mean():.1f}, median: {pm25.median():.1f}, "
+        print(f"  PM2.5 - mean: {pm25.mean():.1f}, median: {pm25.median():.1f}, "
               f"min: {pm25.min():.1f}, max: {pm25.max():.1f}")
         aqi_dist = df["AQI_Category"].value_counts()
         print(f"  AQI distribution:\n{aqi_dist.to_string()}")
@@ -244,7 +244,7 @@ def preprocess(
         df.to_parquet(PROCESSED_FILE, index=False)
         size_mb = PROCESSED_FILE.stat().st_size / 1_048_576
         if verbose:
-            print(f"\n  Saved → {PROCESSED_FILE}  ({size_mb:.1f} MB)")
+            print(f"\n  Saved -> {PROCESSED_FILE}  ({size_mb:.1f} MB)")
 
     return df
 
@@ -254,7 +254,7 @@ def load_processed() -> pd.DataFrame:
     if not PROCESSED_FILE.exists():
         raise FileNotFoundError(
             f"Processed file not found: {PROCESSED_FILE}\n"
-            "Run scripts/run_preprocessing.py first."
+            "Run the preprocessing pipeline: python -c \"from src.data_loader import load_all_stations; from src.preprocessor import preprocess; preprocess(load_all_stations())\""
         )
     df = pd.read_parquet(PROCESSED_FILE)
     # Restore categorical dtype for columns that parquet may have serialised as object

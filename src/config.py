@@ -12,7 +12,7 @@ DATA_PROC    = ROOT_DIR / "data" / "processed"
 MODELS_DIR   = ROOT_DIR / "models"
 REPORTS_DIR  = ROOT_DIR / "reports"
 FIGURES_DIR  = REPORTS_DIR / "figures"
-APP_DIR      = ROOT_DIR / "app"
+FRONTEND_DIR = ROOT_DIR / "frontend"
 
 # ── Key files ─────────────────────────────────────────────────────────────────
 STATIONS_FILE   = DATA_RAW / "stations_info.csv"

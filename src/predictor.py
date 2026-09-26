@@ -129,11 +129,13 @@ def load_model_and_preprocessor() -> tuple[object, dict[str, Any]]:
 
     if not FINAL_MODEL.exists():
         raise FileNotFoundError(
-            f"Final model not found at {FINAL_MODEL}. Please run scripts/run_training.py first."
+            f"Final model not found at {FINAL_MODEL}. "
+            f"Please re-run the training pipeline to generate models/final_model.pkl."
         )
     if not PREPROCESSOR.exists():
         raise FileNotFoundError(
-            f"Preprocessor artefacts not found at {PREPROCESSOR}. Please run scripts/run_training.py first."
+            f"Preprocessor artefacts not found at {PREPROCESSOR}. "
+            f"Please re-run the training pipeline to generate models/preprocessor.pkl."
         )
 
     model = joblib.load(FINAL_MODEL)
@@ -230,7 +232,7 @@ def predict_from_simple_inputs(
     hour: int = 12,
     month: int = 11,
     day_of_week: int = 2,
-    season_num: int = 4,
+    season_num: Optional[int] = None,  # derived from month if not supplied
     is_weekend: int = 0,
     no2: Optional[float] = None,
     co: Optional[float] = None,
@@ -250,6 +252,19 @@ def predict_from_simple_inputs(
     _, preproc = load_model_and_preprocessor()
     col_medians = preproc["col_medians"]
 
+    # Derive season_num from month when not explicitly supplied (0=Winter,1=Pre-Monsoon,2=Monsoon,3=Post-Monsoon)
+    if season_num is None:
+        _month_to_season = {
+            12: 0, 1: 0, 2: 0,
+            3: 1, 4: 1, 5: 1,
+            6: 2, 7: 2, 8: 2, 9: 2,
+            10: 3, 11: 3,
+        }
+        season_num = _month_to_season.get(month, 3)
+
+    import datetime
+    current_year = datetime.datetime.now().year
+
     lag_1h = float(pm25_current)
     lag_2h = float(pm25_lag_2h) if pm25_lag_2h is not None else lag_1h
     lag_3h = float(pm25_lag_3h) if pm25_lag_3h is not None else lag_2h
@@ -267,8 +282,8 @@ def predict_from_simple_inputs(
     roll_std_24h = roll_std_3h
 
     feature_dict = {
-        # Temporal
-        "year": 2023,
+        # Temporal — cap year at 2023 (training data max) to stay in-distribution
+        "year": min(current_year, 2023),
         "month": month,
         "hour": hour,
         "day_of_week": day_of_week,
