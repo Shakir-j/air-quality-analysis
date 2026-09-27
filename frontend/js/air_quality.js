@@ -234,37 +234,58 @@ function renderAQDiurnalChart(data) {
   const chartEl = document.getElementById("aq-diurnal-chart");
   if (!chartEl || !data.diurnal_pattern) return;
 
-  const hours = Array.from({ length: 24 }, (_, i) => `${i.toString().padStart(2, "0")}:00`);
+  // Use integer 0-23 as x values to avoid Plotly date auto-detection on "HH:00" strings
+  const hourInts = Array.from({ length: 24 }, (_, i) => i);
+  const hourLabels = Array.from({ length: 24 }, (_, i) => `${i.toString().padStart(2, "0")}:00`);
   const cityVals = data.diurnal_pattern;
   const natVals = data.national_diurnal || [];
 
   const traceCity = {
-    x: hours,
+    x: hourInts,
     y: cityVals,
     name: `${data.city} Average`,
     type: "scatter",
     mode: "lines+markers",
     line: { color: "#f59e0b", width: 2.2 },
     marker: { size: 5, color: "#f59e0b" },
-    hovertemplate: "%{x}: <b>%{y:.1f} µg/m³</b><extra></extra>",
+    hovertemplate: "%{text}: <b>%{y:.1f} µg/m³</b><extra></extra>",
+    text: hourLabels,
   };
 
   const traceNat = {
-    x: hours,
+    x: hourInts,
     y: natVals,
     name: "National Average",
     type: "scatter",
     mode: "lines",
     line: { color: "#64748b", width: 1.5, dash: "dash" },
-    hovertemplate: "National: <b>%{y:.1f} µg/m³</b><extra></extra>",
+    hovertemplate: "National %{text}: <b>%{y:.1f} µg/m³</b><extra></extra>",
+    text: hourLabels,
   };
 
   const layout = {
-    ...PLOTLY_DARK,
+    paper_bgcolor: "rgba(0,0,0,0)",
+    plot_bgcolor: "rgba(0,0,0,0)",
+    font: { family: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif", color: "#94a3b8", size: 12 },
+    margin: { l: 50, r: 25, t: 20, b: 50 },
     height: 280,
     showlegend: true,
     legend: { x: 0.02, y: 0.98, bgcolor: "rgba(0,0,0,0)", font: { color: "#94a3b8" } },
-    yaxis: { ...PLOTLY_DARK.yaxis, title: "PM2.5 (µg/m³)" },
+    xaxis: {
+      gridcolor: "rgba(255,255,255,0.06)",
+      zerolinecolor: "rgba(255,255,255,0.1)",
+      tickfont: { color: "#94a3b8" },
+      tickmode: "array",
+      tickvals: [0, 3, 6, 9, 12, 15, 18, 21, 23],
+      ticktext: ["00:00", "03:00", "06:00", "09:00", "12:00", "15:00", "18:00", "21:00", "23:00"],
+      title: { text: "Hour of Day", font: { color: "#94a3b8" } },
+    },
+    yaxis: {
+      gridcolor: "rgba(255,255,255,0.06)",
+      zerolinecolor: "rgba(255,255,255,0.1)",
+      tickfont: { color: "#94a3b8" },
+      title: { text: "PM2.5 (µg/m³)", font: { color: "#94a3b8" } },
+    },
   };
 
   Plotly.newPlot("aq-diurnal-chart", [traceCity, traceNat], layout, PLOTLY_CONFIG);
@@ -275,7 +296,9 @@ function renderAQBreakdownBar(data) {
   if (!chartEl || !data.pollutant_averages) return;
 
   const avgs = data.pollutant_averages;
-  const labels = ["PM2.5", "PM10", "NO₂", "SO₂", "Ozone"];
+  // Use ASCII keys for x so Plotly never tries to date-parse them
+  const keys = ["PM2.5", "PM10", "NO2", "SO2", "Ozone"];
+  const displayLabels = ["PM2.5", "PM10", "NO\u2082", "SO\u2082", "Ozone"];
   const values = [
     avgs["PM2.5"] || 0,
     avgs["PM10"] || 0,
@@ -285,20 +308,36 @@ function renderAQBreakdownBar(data) {
   ];
 
   const trace = {
-    x: labels,
+    x: keys,
     y: values,
     type: "bar",
     marker: {
       color: ["#14b8a6", "#38bdf8", "#f59e0b", "#f97316", "#a855f7"],
     },
-    hovertemplate: "%{x}: <b>%{y:.1f} µg/m³</b><extra></extra>",
+    hovertemplate: "%{x}: <b>%{y:.1f} \u00b5g/m\u00b3</b><extra></extra>",
   };
 
   const layout = {
-    ...PLOTLY_DARK,
+    paper_bgcolor: "rgba(0,0,0,0)",
+    plot_bgcolor: "rgba(0,0,0,0)",
+    font: { family: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif", color: "#94a3b8", size: 12 },
+    margin: { l: 50, r: 25, t: 20, b: 50 },
     height: 280,
     showlegend: false,
-    yaxis: { ...PLOTLY_DARK.yaxis, title: "Historical Mean (µg/m³)" },
+    xaxis: {
+      gridcolor: "rgba(255,255,255,0.06)",
+      zerolinecolor: "rgba(255,255,255,0.1)",
+      tickfont: { color: "#94a3b8" },
+      type: "category",
+      tickvals: keys,
+      ticktext: displayLabels,
+    },
+    yaxis: {
+      gridcolor: "rgba(255,255,255,0.06)",
+      zerolinecolor: "rgba(255,255,255,0.1)",
+      tickfont: { color: "#94a3b8" },
+      title: { text: "Historical Mean (\u00b5g/m\u00b3)", font: { color: "#94a3b8" } },
+    },
   };
 
   Plotly.newPlot("aq-breakdown-bar", [trace], layout, PLOTLY_CONFIG);
