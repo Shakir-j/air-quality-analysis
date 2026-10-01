@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Privacy Policy | AIRWISE</title>
+  <meta name="description" content="AIRWISE Privacy Policy. We collect no personal data. This page explains exactly what information, if any, is processed when you use the platform.">
+
+  <!-- Favicon -->
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%230d9488'/%3E%3Ccircle cx='16' cy='16' r='6' fill='none' stroke='%23f8fafc' stroke-width='2.5'/%3E%3Cpath d='M16 4v4M16 24v4M4 16h4M24 16h4' stroke='%23f8fafc' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E">
+
+  <link rel="stylesheet" href="/css/styles.css">
+  <style>
+    .legal-page { max-width: 760px; margin: 0 auto; padding: 56px 24px 80px; }
+    .legal-back-link { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--text-muted); text-decoration: none; margin-bottom: 40px; transition: color 0.15s ease; }
+    .legal-back-link:hover { color: var(--text-primary); }
+    .legal-eyebrow { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--accent-teal-light); font-weight: 700; margin-bottom: 12px; }
+    .legal-title { font-size: 36px; font-weight: 800; letter-spacing: -0.8px; color: var(--text-primary); margin-bottom: 8px; line-height: 1.2; }
+    .legal-date { font-size: 13px; color: var(--text-muted); margin-bottom: 48px; }
+    .legal-section { margin-bottom: 40px; }
+    .legal-section h2 { font-size: 18px; font-weight: 700; color: var(--text-primary); margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid var(--border-subtle); }
+    .legal-section p { font-size: 15px; color: var(--text-secondary); line-height: 1.75; margin-bottom: 12px; }
+    .legal-section ul { margin: 8px 0 12px 20px; }
+    .legal-section li { font-size: 15px; color: var(--text-secondary); line-height: 1.7; margin-bottom: 6px; }
+    .legal-highlight-box { background-color: var(--bg-surface); border: 1px solid var(--border-subtle); border-left: 3px solid var(--accent-teal); border-radius: var(--radius-sm); padding: 16px 20px; margin: 20px 0 40px; font-size: 14px; color: var(--text-secondary); line-height: 1.65; }
+  </style>
+</head>
+<body>
+  <header class="navbar">
+    <div class="nav-container">
+      <a href="/" class="brand-group" style="text-decoration:none;">
+        <div class="brand-logo">
+          <span class="logo-dot"></span>
+          <span class="brand-name">AIRWISE</span>
+        </div>
+        <span class="brand-divider"></span>
+        <span class="brand-tagline">Air Quality Analysis &amp; Prediction</span>
+      </a>
+      <nav class="nav-links">
+        <a href="/" class="nav-item">Home</a>
+      </nav>
+      <div class="nav-status-badge">
+        <span class="status-indicator"></span>
+        <span class="status-text">CPCB Historical Network</span>
+      </div>
+    </div>
+  </header>
+
+  <main class="main-content" style="display:block;">
+    <div class="legal-page">
+      <a href="/" class="legal-back-link">&larr; Back to AIRWISE</a>
+
+      <p class="legal-eyebrow">Legal</p>
+      <h1 class="legal-title">Privacy Policy</h1>
+      <p class="legal-date">Last updated: 1 October 2026</p>
+
+      <div class="legal-highlight-box">
+        Summary: AIRWISE does not collect, store, or share any personal information. The platform visualises publicly available government environmental data and runs all computation locally.
+      </div>
+
+      <div class="legal-section">
+        <h2>1. Who We Are</h2>
+        <p>AIRWISE is an environmental intelligence platform that analyses and visualises air quality records sourced from the Central Pollution Control Board (CPCB) of India. The platform is provided for informational and research purposes.</p>
+      </div>
+
+      <div class="legal-section">
+        <h2>2. Information We Do Not Collect</h2>
+        <p>AIRWISE does not collect any of the following:</p>
+        <ul>
+          <li>Names, email addresses, or any contact details</li>
+          <li>Account credentials or registration information</li>
+          <li>Location data from your device</li>
+          <li>Cookies for tracking or advertising purposes</li>
+          <li>Device fingerprints or persistent identifiers</li>
+        </ul>
+      </div>
+
+      <div class="legal-section">
+        <h2>3. Data Processed Locally</h2>
+        <p>All air quality data displayed by AIRWISE is derived from the CPCB open dataset (2010 to 2023). This data is pre-processed, cached server-side, and served as static JSON responses. No personal data is involved in this process.</p>
+        <p>Any prediction inputs you enter into the Prediction tool are sent to the local API server for computation and are not logged, stored, or transmitted to any third party.</p>
+      </div>
+
+      <div class="legal-section">
+        <h2>4. Server Access Logs</h2>
+        <p>Like any web server, the server software (Uvicorn/FastAPI) may generate standard HTTP access logs containing IP addresses, request paths, and timestamps. These logs are retained only as long as necessary for debugging and security and are not shared externally.</p>
+      </div>
+
+      <div class="legal-section">
+        <h2>5. Third-Party Services</h2>
+        <p>AIRWISE loads all dependencies (Leaflet.js, Plotly.js) from local vendor files. No third-party scripts, analytics services, or advertising networks are loaded by this platform.</p>
+      </div>
+
+      <div class="legal-section">
+        <h2>6. Data Source Attribution</h2>
+        <p>All environmental records are sourced from the Central Pollution Control Board (CPCB) open data portal under its public data access policy. AIRWISE does not claim ownership of any underlying measurement data.</p>
+      </div>
+
+      <div class="legal-section">
+        <h2>7. Changes to This Policy</h2>
+        <p>If this Privacy Policy changes, the updated version will be posted at this URL with a revised date. Material changes will be noted clearly at the top of this page.</p>
+      </div>
+
+      <div class="legal-section">
+        <h2>8. Contact</h2>
+        <p>For questions about this Privacy Policy, please refer to the project repository. There is no data rights request process because no personal data is held.</p>
+      </div>
+    </div>
+  </main>
+
+  <footer class="footer">
+    <div class="container footer-content">
+      <div class="footer-left">
+        <div class="footer-brand">AIRWISE</div>
+        <p class="footer-desc">Environmental intelligence and predictive surveillance platform analyzing 13 years of continuous ambient air quality records across India.</p>
+        <p class="footer-provenance">Dataset: Central Pollution Control Board (CPCB) monitoring stations (2010-2023). 130 active stations across 10 major metropolitan centers.</p>
+      </div>
+      <div class="footer-right">
+        <div class="footer-links">
+          <a href="/">Home</a>
+          <a href="/#air-quality">Air Quality</a>
+          <a href="/#explore">Explore</a>
+          <a href="/#insights">Insights</a>
+          <a href="/#prediction">Prediction</a>
+        </div>
+        <div class="footer-links footer-legal-links">
+          <a href="/privacy-policy">Privacy Policy</a>
+          <a href="/terms">Terms &amp; Conditions</a>
+        </div>
+        <p class="footer-copy">&copy; 2026 AIRWISE. All environmental records derived from official CPCB open data.</p>
+      </div>
+    </div>
+  </footer>
+</body>
+</html>

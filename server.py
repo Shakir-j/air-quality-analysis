@@ -298,6 +298,16 @@ def serve_index():
     return FileResponse(FRONTEND_DIR / "index.html")
 
 
+@app.get("/privacy-policy")
+def serve_privacy_policy():
+    return FileResponse(FRONTEND_DIR / "privacy-policy.html")
+
+
+@app.get("/terms")
+def serve_terms():
+    return FileResponse(FRONTEND_DIR / "terms.html")
+
+
 if __name__ == "__main__":
     import uvicorn
     # Warm up cache before listening
