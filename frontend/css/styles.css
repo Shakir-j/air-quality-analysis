@@ -1459,3 +1459,44 @@ body {
     border-bottom: none;
   }
 }
+
+/* -- AQI Dust Background (Home Hero Only) ---------------------------------
+   These rules position the Three.js WebGL canvas behind the hero content.
+   The canvas is created and inserted by aqi-dust.js; these styles ensure it
+   stays fixed to the hero section without interfering with any other content.
+   ---------------------------------------------------------------------------- */
+
+/* The hero section needs a stacking context so the canvas z-index is scoped */
+#section-home {
+  position: relative;
+}
+
+/* The WebGL canvas: full-bleed, behind all hero content, no pointer events */
+#aqi-dust-canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 0;
+  display: block;
+}
+
+/* Ensure all hero content renders above the canvas */
+#section-home .hero-section,
+#section-home .container {
+  position: relative;
+  z-index: 1;
+}
+
+/* Subtle text-shadow on hero headline to boost contrast against the haze */
+#section-home .hero-title {
+  text-shadow: 0 2px 24px rgba(8, 12, 21, 0.7), 0 1px 4px rgba(0, 0, 0, 0.5);
+}
+
+#section-home .hero-subtitle {
+  text-shadow: 0 1px 8px rgba(8, 12, 21, 0.6);
+}
+
+/* -- End AQI Dust Background ------------------------------------------------ */

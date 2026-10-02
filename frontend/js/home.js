@@ -1,4 +1,4 @@
-/**
+﻿/**
  * home.js
  * ───────
  * Home view logic: Featured air quality snapshot, interactive Leaflet map,
@@ -95,6 +95,12 @@ async function loadFeaturedCityAQ(cityName) {
       </div>
     </div>
   `;
+
+  // Hook: update the AQI dust background to reflect this city's air quality
+  if (window.AQIDust) {
+    window.AQIDust.setAQI(lat.aqi);
+    window.AQIDust.setCity(cityName);
+  }
 }
 
 // ── Interactive India Map (Leaflet) ──────────────────────────────────────────
