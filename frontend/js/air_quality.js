@@ -88,6 +88,8 @@ function renderAQMainIndicator(data) {
   const lat = data.latest_recorded;
   const health = getHealthGuidance(lat.category);
 
+  const avgs = data.pollutant_averages || {};
+
   container.innerHTML = `
     <div>
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
@@ -112,12 +114,49 @@ function renderAQMainIndicator(data) {
         <div style="font-size: 12px; font-weight: 700; color: var(--text-primary); margin-bottom: 4px;">Health Advisory:</div>
         <div style="font-size: 13px; color: var(--text-secondary); line-height: 1.5;">${health.advisory}</div>
       </div>
+
+      <button
+        id="btn-send-to-prediction"
+        onclick="sendToPrediction()"
+        style="
+          width: 100%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+          padding: 11px 18px;
+          background-color: var(--accent-teal);
+          color: #fff;
+          border: none;
+          border-radius: var(--radius-md);
+          font-size: 14px;
+          font-weight: 600;
+          cursor: pointer;
+          font-family: inherit;
+          transition: background-color 0.15s ease;
+        "
+        onmouseover="this.style.backgroundColor='var(--accent-teal-light)'"
+        onmouseout="this.style.backgroundColor='var(--accent-teal)'"
+      >
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+        Predict Next Hour with These Values
+      </button>
     </div>
 
-    <div style="font-size: 12px; color: var(--text-muted); border-top: 1px solid var(--border-subtle); padding-top: 12px;">
+    <div style="font-size: 12px; color: var(--text-muted); border-top: 1px solid var(--border-subtle); padding-top: 12px; margin-top: 16px;">
       Recorded at: ${lat.timestamp.split(" ")[0]} • Station: ${lat.station_location || data.city}
     </div>
   `;
+
+  // Store current values for the send-to-prediction button
+  window._aqCurrentData = {
+    city: data.city,
+    pm25: lat.pm25 ?? avgs["PM2.5"] ?? null,
+    no2:  lat.no2  ?? avgs["NO2"]  ?? null,
+    so2:  lat.so2  ?? avgs["SO2"]  ?? null,
+    co:   lat.co   ?? avgs["CO"]   ?? null,
+    ozone: lat.ozone ?? avgs["Ozone"] ?? null,
+  };
 }
 
 function renderPollutantCards(data) {
@@ -393,7 +432,7 @@ async function loadAirQualityHistorical(cityName, pollutant, mode) {
       x,
       y,
       type: "bar",
-      marker: { color: "#14b8a6" },
+      marker: { color: "#40916c" },
       hovertemplate: "Year %{x}: <b>%{y:.1f} µg/m³</b><extra></extra>",
     };
 
@@ -413,4 +452,87 @@ function switchHistoricalView(mode) {
   document.getElementById("btn-hist-monthly")?.classList.toggle("active", mode === "monthly");
   document.getElementById("btn-hist-yearly")?.classList.toggle("active", mode === "yearly");
   loadAirQualityHistorical(AppState.selectedCity, AppState.selectedPollutant, mode);
+}
+
+/**
+ * sendToPrediction
+ * ────────────────
+ * Reads the pollutant values currently displayed on the Air Quality tab,
+ * auto-fills the Prediction form with them, then navigates to Prediction.
+ * The user only needs to adjust Hour, Month, and Day Type for their target date.
+ */
+function sendToPrediction() {
+  const d = window._aqCurrentData;
+  if (!d) return;
+
+  // Navigate to Prediction tab first
+  if (typeof navigateTo === "function") navigateTo("prediction");
+
+  // Small delay to let the section render before filling fields
+  setTimeout(() => {
+    const setVal = (id, val) => {
+      const el = document.getElementById(id);
+      if (el && val !== null && val !== undefined) el.value = val;
+    };
+
+    // City
+    setVal("pred-city", d.city);
+
+    // PM2.5 — current + reasonable lag estimates (±5% spread)
+    if (d.pm25 !== null) {
+      setVal("pred-pm25",      parseFloat(d.pm25).toFixed(1));
+      setVal("pred-pm25-lag2", (d.pm25 * 1.04).toFixed(1));  // 2h ago ~4% higher
+      setVal("pred-pm25-lag3", (d.pm25 * 1.07).toFixed(1));  // 3h ago ~7% higher
+    }
+
+    // Pollutant gases
+    if (d.no2   !== null) setVal("pred-no2",   parseFloat(d.no2).toFixed(1));
+    if (d.co    !== null) setVal("pred-co",    parseFloat(d.co).toFixed(2));
+    if (d.so2   !== null) setVal("pred-so2",   parseFloat(d.so2).toFixed(1));
+    if (d.ozone !== null) setVal("pred-ozone", parseFloat(d.ozone).toFixed(1));
+
+    // Set month and hour to current real time
+    const now = new Date();
+    const currentMonth = now.getMonth() + 1; // JS months are 0-indexed
+    setVal("pred-month", currentMonth);
+    setVal("pred-hour",  now.getHours());
+    setVal("pred-weekend", (now.getDay() === 0 || now.getDay() === 6) ? 1 : 0);
+
+    // Auto-fill Temperature, Humidity, and Wind Speed based on City & Season
+    const climateLookup = {
+      "Delhi": { "winter": { temp: 15, rh: 65, ws: 1.5 }, "summer": { temp: 35, rh: 30, ws: 3.0 }, "monsoon": { temp: 30, rh: 75, ws: 2.5 }, "post_monsoon": { temp: 25, rh: 55, ws: 1.8 } },
+      "Mumbai": { "winter": { temp: 26, rh: 60, ws: 3.5 }, "summer": { temp: 30, rh: 65, ws: 4.0 }, "monsoon": { temp: 28, rh: 85, ws: 5.0 }, "post_monsoon": { temp: 29, rh: 70, ws: 3.8 } },
+      "Chennai": { "winter": { temp: 25, rh: 70, ws: 3.5 }, "summer": { temp: 32, rh: 65, ws: 4.5 }, "monsoon": { temp: 30, rh: 70, ws: 4.0 }, "post_monsoon": { temp: 28, rh: 75, ws: 3.2 } },
+      "Bengaluru": { "winter": { temp: 20, rh: 55, ws: 2.5 }, "summer": { temp: 27, rh: 40, ws: 3.0 }, "monsoon": { temp: 23, rh: 75, ws: 4.5 }, "post_monsoon": { temp: 22, rh: 65, ws: 3.0 } },
+      "Kolkata": { "winter": { temp: 18, rh: 60, ws: 1.5 }, "summer": { temp: 32, rh: 55, ws: 3.5 }, "monsoon": { temp: 29, rh: 80, ws: 2.5 }, "post_monsoon": { temp: 26, rh: 70, ws: 1.8 } },
+      "Lucknow": { "winter": { temp: 15, rh: 70, ws: 1.2 }, "summer": { temp: 34, rh: 25, ws: 2.5 }, "monsoon": { temp: 29, rh: 80, ws: 2.0 }, "post_monsoon": { temp: 24, rh: 60, ws: 1.5 } },
+      "Ahmedabad": { "winter": { temp: 20, rh: 45, ws: 2.0 }, "summer": { temp: 35, rh: 30, ws: 3.5 }, "monsoon": { temp: 30, rh: 75, ws: 4.0 }, "post_monsoon": { temp: 28, rh: 50, ws: 2.5 } },
+      "Hyderabad": { "winter": { temp: 22, rh: 50, ws: 2.5 }, "summer": { temp: 33, rh: 35, ws: 3.5 }, "monsoon": { temp: 27, rh: 75, ws: 4.0 }, "post_monsoon": { temp: 25, rh: 60, ws: 3.0 } },
+      "Patna": { "winter": { temp: 16, rh: 70, ws: 1.5 }, "summer": { temp: 33, rh: 30, ws: 2.8 }, "monsoon": { temp: 29, rh: 82, ws: 2.2 }, "post_monsoon": { temp: 25, rh: 65, ws: 1.5 } },
+      "Pune": { "winter": { temp: 20, rh: 50, ws: 2.0 }, "summer": { temp: 31, rh: 35, ws: 3.5 }, "monsoon": { temp: 25, rh: 80, ws: 4.5 }, "post_monsoon": { temp: 24, rh: 60, ws: 2.5 } }
+    };
+    
+    let season = "winter";
+    if (currentMonth >= 3 && currentMonth <= 5) season = "summer";
+    else if (currentMonth >= 6 && currentMonth <= 9) season = "monsoon";
+    else if (currentMonth >= 10 && currentMonth <= 11) season = "post_monsoon";
+    
+    const cityClimate = climateLookup[d.city] || climateLookup["Delhi"];
+    const weather = cityClimate[season];
+    
+    setVal("pred-temp", weather.temp);
+    setVal("pred-rh", weather.rh);
+    setVal("pred-ws", weather.ws);
+
+    // Flash a brief highlight on the form to show it was filled
+    const form = document.getElementById("prediction-form");
+    if (form) {
+      form.style.transition = "box-shadow 0.3s ease";
+      form.style.boxShadow = "0 0 0 3px rgba(45, 106, 79, 0.35)";
+      setTimeout(() => { form.style.boxShadow = ""; }, 1200);
+    }
+
+    // Auto-run the prediction
+    if (typeof submitPredictionForm === "function") submitPredictionForm();
+  }, 120);
 }

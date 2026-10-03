@@ -165,7 +165,12 @@ function populateCityDropdowns() {
     for (let h = 0; h < 24; h++) {
       const opt = document.createElement("option");
       opt.value = h;
-      opt.textContent = `${h.toString().padStart(2, "0")}:00 (${h < 12 ? "Morning" : h < 17 ? "Afternoon" : "Evening"})`;
+      let timeLabel = "Night";
+      if (h >= 5 && h < 12) timeLabel = "Morning";
+      else if (h >= 12 && h < 17) timeLabel = "Afternoon";
+      else if (h >= 17 && h < 21) timeLabel = "Evening";
+      
+      opt.textContent = `${h.toString().padStart(2, "0")}:00 (${timeLabel})`;
       if (h === 18) opt.selected = true;
       hourSelect.appendChild(opt);
     }

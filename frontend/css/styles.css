@@ -1,40 +1,40 @@
 /* ── AIRWISE Design System & Styles ────────────────────────────────────────── */
 
 :root {
-  /* Color Palette */
-  --bg-primary: #080c15;
-  --bg-secondary: #0e1626;
-  --bg-surface: #141f36;
-  --bg-surface-elevated: #1a2844;
-  --border-subtle: rgba(255, 255, 255, 0.08);
-  --border-medium: rgba(255, 255, 255, 0.14);
+  /* Color Palette — Pale Atmosphere */
+  --bg-primary: #f5f4f0;
+  --bg-secondary: #ffffff;
+  --bg-surface: #eceae4;
+  --bg-surface-elevated: #e3e1da;
+  --border-subtle: rgba(26, 26, 46, 0.08);
+  --border-medium: rgba(26, 26, 46, 0.16);
 
   /* Typography */
   --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  --text-primary: #f8fafc;
-  --text-secondary: #94a3b8;
-  --text-muted: #64748b;
-  --text-link: #38bdf8;
+  --text-primary: #1a1a2e;
+  --text-secondary: #5a5a6e;
+  --text-muted: #8e8e9e;
+  --text-link: #2d6a4f;
 
-  /* Accents */
-  --accent-teal: #0d9488;
-  --accent-teal-light: #14b8a6;
-  --accent-cyan: #06b6d4;
-  --accent-blue: #3b82f6;
+  /* Accents — Forest Green + Dusty Blue */
+  --accent-teal: #2d6a4f;
+  --accent-teal-light: #40916c;
+  --accent-cyan: #457b9d;
+  --accent-blue: #1d3557;
 
   /* Official CPCB AQI Palette */
-  --aqi-good: #10b981;
-  --aqi-good-bg: rgba(16, 185, 129, 0.12);
-  --aqi-satisfactory: #84cc16;
-  --aqi-satisfactory-bg: rgba(132, 204, 22, 0.12);
-  --aqi-moderate: #f59e0b;
-  --aqi-moderate-bg: rgba(245, 158, 11, 0.12);
-  --aqi-poor: #f97316;
-  --aqi-poor-bg: rgba(249, 115, 22, 0.12);
-  --aqi-very-poor: #ef4444;
-  --aqi-very-poor-bg: rgba(239, 68, 68, 0.12);
-  --aqi-severe: #991b1b;
-  --aqi-severe-bg: rgba(153, 27, 27, 0.2);
+  --aqi-good: #2d6a4f;
+  --aqi-good-bg: rgba(45, 106, 79, 0.10);
+  --aqi-satisfactory: #6a8f3d;
+  --aqi-satisfactory-bg: rgba(106, 143, 61, 0.10);
+  --aqi-moderate: #c47d1a;
+  --aqi-moderate-bg: rgba(196, 125, 26, 0.10);
+  --aqi-poor: #c1440e;
+  --aqi-poor-bg: rgba(193, 68, 14, 0.10);
+  --aqi-very-poor: #b91c1c;
+  --aqi-very-poor-bg: rgba(185, 28, 28, 0.10);
+  --aqi-severe: #7f1d1d;
+  --aqi-severe-bg: rgba(127, 29, 29, 0.15);
 
   /* Layout Constants */
   --max-width: 1240px;
@@ -42,9 +42,9 @@
   --radius-md: 10px;
   --radius-lg: 14px;
   --radius-xl: 18px;
-  --shadow-sm: 0 1px 3px rgba(0,0,0,0.3);
-  --shadow-md: 0 4px 12px rgba(0,0,0,0.4);
-  --shadow-lg: 0 12px 28px rgba(0,0,0,0.5);
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.07);
+  --shadow-md: 0 4px 12px rgba(0,0,0,0.09);
+  --shadow-lg: 0 12px 28px rgba(0,0,0,0.12);
 }
 
 /* ── Base Reset ─────────────────────────────────────────────────────────── */
@@ -101,7 +101,7 @@ body {
   position: sticky;
   top: 0;
   z-index: 1000;
-  background-color: rgba(8, 12, 21, 0.88);
+  background-color: rgba(245, 244, 240, 0.92);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   border-bottom: 1px solid var(--border-subtle);
@@ -137,8 +137,8 @@ body {
   width: 10px;
   height: 10px;
   border-radius: 50%;
-  background: linear-gradient(135deg, var(--accent-teal-light), var(--accent-cyan));
-  box-shadow: 0 0 10px rgba(20, 184, 166, 0.6);
+  background: linear-gradient(135deg, var(--accent-teal), var(--accent-teal-light));
+  box-shadow: 0 0 8px rgba(45, 106, 79, 0.4);
 }
 
 .brand-name {
@@ -178,26 +178,26 @@ body {
 
 .nav-item:hover {
   color: var(--text-primary);
-  background-color: rgba(255, 255, 255, 0.05);
+  background-color: rgba(26, 26, 46, 0.06);
 }
 
 .nav-item.active {
-  color: var(--text-primary);
-  background-color: var(--bg-surface);
+  color: var(--accent-teal);
+  background-color: rgba(45, 106, 79, 0.08);
   font-weight: 600;
-  box-shadow: inset 0 0 0 1px var(--border-medium);
+  box-shadow: inset 0 0 0 1px rgba(45, 106, 79, 0.2);
 }
 
 .nav-status-badge {
   display: flex;
   align-items: center;
   gap: 8px;
-  background-color: rgba(20, 184, 166, 0.08);
-  border: 1px solid rgba(20, 184, 166, 0.25);
+  background-color: rgba(45, 106, 79, 0.08);
+  border: 1px solid rgba(45, 106, 79, 0.22);
   padding: 6px 12px;
   border-radius: var(--radius-sm);
   font-size: 11px;
-  color: var(--accent-teal-light);
+  color: var(--accent-teal);
   font-weight: 600;
   letter-spacing: 0.2px;
 }
@@ -206,8 +206,8 @@ body {
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background-color: var(--accent-teal-light);
-  box-shadow: 0 0 6px var(--accent-teal-light);
+  background-color: var(--accent-teal);
+  box-shadow: 0 0 5px rgba(45, 106, 79, 0.5);
 }
 
 /* ── Section Pages Display Logic ────────────────────────────────────────── */
@@ -233,7 +233,7 @@ body {
 /* ── Hero Section (Home) ────────────────────────────────────────────────── */
 .hero-section {
   padding: 60px 24px 44px 24px;
-  background: radial-gradient(circle at 50% 0%, rgba(13, 148, 136, 0.15) 0%, rgba(8, 12, 21, 0) 70%);
+  background: radial-gradient(circle at 50% 0%, rgba(45, 106, 79, 0.08) 0%, rgba(245, 244, 240, 0) 70%);
   border-bottom: 1px solid var(--border-subtle);
   text-align: center;
 }
@@ -248,13 +248,13 @@ body {
   font-size: 12px;
   text-transform: uppercase;
   letter-spacing: 1px;
-  color: var(--accent-teal-light);
+  color: var(--accent-teal);
   font-weight: 700;
   margin-bottom: 12px;
-  background-color: rgba(20, 184, 166, 0.1);
+  background-color: rgba(45, 106, 79, 0.08);
   padding: 4px 12px;
   border-radius: var(--radius-sm);
-  border: 1px solid rgba(20, 184, 166, 0.2);
+  border: 1px solid rgba(45, 106, 79, 0.2);
 }
 
 .hero-title {
@@ -312,8 +312,8 @@ body {
 
 .location-dropdown:focus {
   outline: none;
-  border-color: var(--accent-teal-light);
-  box-shadow: 0 0 0 3px rgba(20, 184, 166, 0.2);
+  border-color: var(--accent-teal);
+  box-shadow: 0 0 0 3px rgba(45, 106, 79, 0.15);
 }
 
 /* ── Buttons & Badges ───────────────────────────────────────────────────── */
@@ -349,7 +349,7 @@ body {
 }
 
 .btn-secondary:hover {
-  background-color: rgba(255, 255, 255, 0.1);
+  background-color: var(--bg-surface);
 }
 
 .btn-outline {
@@ -360,13 +360,13 @@ body {
 
 .btn-outline:hover {
   color: var(--text-primary);
-  border-color: rgba(255, 255, 255, 0.3);
+  border-color: rgba(26, 26, 46, 0.3);
 }
 
 .btn-outline.active {
-  background-color: var(--bg-surface-elevated);
-  color: var(--text-primary);
-  border-color: var(--accent-teal-light);
+  background-color: rgba(45, 106, 79, 0.08);
+  color: var(--accent-teal);
+  border-color: rgba(45, 106, 79, 0.3);
   font-weight: 600;
 }
 
@@ -412,7 +412,7 @@ body {
 }
 
 .badge-neutral {
-  background-color: rgba(255, 255, 255, 0.07);
+  background-color: rgba(26, 26, 46, 0.05);
   color: var(--text-secondary);
   border: 1px solid var(--border-subtle);
 }
@@ -554,8 +554,8 @@ body {
 }
 
 .aqi-health-interpretation {
-  background-color: rgba(255, 255, 255, 0.03);
-  border: 1px solid var(--border-subtle);
+  background-color: rgba(45, 106, 79, 0.04);
+  border: 1px solid rgba(45, 106, 79, 0.12);
   border-radius: var(--radius-sm);
   padding: 14px 18px;
   font-size: 13px;
@@ -583,11 +583,11 @@ body {
 .interactive-map-container {
   height: 100%;
   width: 100%;
-  background-color: #0b111e;
+  background-color: #e8e6e0;
 }
 
 .interactive-map-container .leaflet-tile {
-  filter: brightness(0.6) invert(1) contrast(3) hue-rotate(200deg) saturate(0.3) brightness(0.7);
+  filter: saturate(0.7) brightness(1.02);
 }
 
 .map-legend {
@@ -668,7 +668,7 @@ body {
   justify-content: space-between;
   align-items: center;
   font-size: 13px;
-  border-bottom: 1px solid rgba(255,255,255,0.05);
+  border-bottom: 1px solid rgba(26, 26, 46, 0.07);
   padding-bottom: 6px;
 }
 
@@ -754,7 +754,7 @@ body {
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.8px;
-  color: var(--accent-teal-light);
+  color: var(--accent-teal);
   margin-bottom: 8px;
 }
 
@@ -814,7 +814,8 @@ body {
 }
 
 .form-select:focus {
-  border-color: var(--accent-teal-light);
+  border-color: var(--accent-teal);
+  box-shadow: 0 0 0 3px rgba(45, 106, 79, 0.12);
 }
 
 .aq-status-layout {
@@ -851,8 +852,8 @@ body {
 }
 
 .pollutant-card.active-focus {
-  border-color: var(--accent-teal-light);
-  box-shadow: 0 0 0 1px var(--accent-teal-light);
+  border-color: var(--accent-teal);
+  box-shadow: 0 0 0 1px rgba(45, 106, 79, 0.3);
 }
 
 .pollutant-header {
@@ -943,7 +944,7 @@ body {
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.8px;
-  color: var(--accent-teal-light);
+  color: var(--accent-teal);
   margin-bottom: 8px;
 }
 
@@ -1011,7 +1012,7 @@ body {
 .data-table td {
   padding: 12px 16px;
   color: var(--text-secondary);
-  border-bottom: 1px solid rgba(255,255,255,0.04);
+  border-bottom: 1px solid rgba(26, 26, 46, 0.05);
 }
 
 .data-table tr:last-child td {
@@ -1103,7 +1104,8 @@ body {
 }
 
 .form-input:focus {
-  border-color: var(--accent-teal-light);
+  border-color: var(--accent-teal);
+  box-shadow: 0 0 0 3px rgba(45, 106, 79, 0.12);
 }
 
 .input-hint {
@@ -1163,7 +1165,7 @@ body {
   font-size: 11px;
   text-transform: uppercase;
   letter-spacing: 0.8px;
-  color: var(--accent-teal-light);
+  color: var(--accent-teal);
   font-weight: 700;
 }
 
@@ -1241,14 +1243,14 @@ body {
 }
 
 .precaution-bullet {
-  color: var(--accent-teal-light);
+  color: var(--accent-teal);
   font-size: 14px;
   font-weight: 700;
 }
 
 /* ── Footer ─────────────────────────────────────────────────────────────── */
 .footer {
-  background-color: #05080f;
+  background-color: #e3e1da;
   border-top: 1px solid var(--border-subtle);
   padding: 48px 0;
   margin-top: auto;
@@ -1441,7 +1443,7 @@ body {
     top: 60px;
     left: 0;
     right: 0;
-    background: var(--bg-secondary);
+    background: rgba(245, 244, 240, 0.97);
     border-bottom: 1px solid var(--border-subtle);
     padding: 12px 24px 16px;
     gap: 4px;
