@@ -104,6 +104,8 @@ def run_verification():
         assert map_el.is_displayed(), "India map container is not displayed"
         markers = driver.find_elements(By.CSS_SELECTOR, ".leaflet-interactive")
         if markers:
+            driver.execute_script("arguments[0].scrollIntoView({block: 'center', inline: 'center'});", markers[0])
+            time.sleep(0.3)
             markers[0].click()
             time.sleep(0.5)
             detail_panel = driver.find_element(By.ID, "map-detail-panel")
@@ -112,9 +114,13 @@ def run_verification():
 
         # Test Trend Chart Pollutant Buttons
         pm10_btn = driver.find_element(By.XPATH, "//button[text()='PM10']")
+        driver.execute_script("arguments[0].scrollIntoView({block: 'center', inline: 'center'});", pm10_btn)
+        time.sleep(0.3)
         pm10_btn.click()
         time.sleep(1)
         no2_btn = driver.find_element(By.XPATH, "//button[text()='NO₂']")
+        driver.execute_script("arguments[0].scrollIntoView({block: 'center', inline: 'center'});", no2_btn)
+        time.sleep(0.3)
         no2_btn.click()
         time.sleep(1)
         print("    Trend Chart: Interacted with PM10 and NO2 pollutant toggle buttons")

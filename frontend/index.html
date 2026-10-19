@@ -14,6 +14,9 @@
   
   <!-- Custom Design System -->
   <link rel="stylesheet" href="/css/styles.css">
+  <link rel="stylesheet" href="/css/redesign.css?v=3.0">
+  <link rel="stylesheet" href="/css/air-quality-redesign.css?v=3.0">
+  <link rel="stylesheet" href="/css/analysis-pages-redesign.css?v=1.0">
 </head>
 <body>
 
@@ -60,7 +63,7 @@
       <div class="hero-section">
         <div class="hero-content">
           <span class="hero-eyebrow">Environmental Data Platform</span>
-          <h1 class="hero-title">Understand the air around you.</h1>
+          <h1 class="hero-title">Understand the<br><span class="hero-title-accent">air around you.</span></h1>
           <p class="hero-subtitle">
             Explore air-quality patterns across India, understand pollution trends, and predict upcoming air-quality levels from historical environmental data.
           </p>
@@ -76,6 +79,11 @@
             </div>
             <button class="btn btn-primary" onclick="applyHomeCity()">View Location</button>
           </div>
+        </div>
+        <div class="earth-hero-visual" aria-hidden="true">
+          <canvas id="earth-canvas"></canvas>
+          <div class="earth-orbit earth-orbit--one"></div>
+          <div class="earth-orbit earth-orbit--two"></div>
         </div>
       </div>
 
@@ -623,5 +631,7 @@
   <script src="/js/explore.js?v=2.0"></script>
   <script src="/js/insights.js?v=2.0"></script>
   <script src="/js/prediction.js?v=2.0"></script>
+  <script src="/static/vendor/three.min.js"></script>
+  <script src="/static/js/earth-hero.js"></script>
 </body>
 </html>
