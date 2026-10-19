@@ -432,6 +432,20 @@
       </div>
 
       <div class="container">
+        <!-- Live Station Telemetry Integration Banner -->
+        <div class="live-autofill-banner" id="live-autofill-banner">
+          <div class="live-autofill-info">
+            <span class="live-pulse-dot" id="live-banner-pulse"></span>
+            <div>
+              <strong id="live-banner-title">CPCB Air Quality Observations</strong>
+              <p class="live-autofill-subtitle" id="live-banner-sub">Auto-populate prediction inputs using current station observations for the selected city.</p>
+            </div>
+          </div>
+          <button type="button" class="btn btn-outline" id="btn-fetch-live" onclick="loadLivePredictionInputs()">
+            <span>Auto-Fill from Station Telemetry</span>
+          </button>
+        </div>
+
         <!-- Scenario Presets -->
         <div class="presets-card">
           <div class="presets-header">

@@ -24,6 +24,7 @@ data/raw/
 data/processed/
 !data/raw/.gitkeep
 !data/processed/.gitkeep
+backup_artifacts/
 
 # Large pre-rendered figures (>100MB files like boxplots)
 reports/figures/*.html
@@ -48,3 +49,8 @@ desktop.ini
 .env
 *.env
 secrets.toml
+
+# Local environment files and credentials
+.env
+.env.*
+!.env.example

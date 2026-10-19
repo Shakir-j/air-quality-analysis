@@ -90,3 +90,47 @@ def test_prediction_endpoint():
     assert "predicted_aqi" in data
     assert "aqi_category" in data
     assert "advisory" in data
+
+
+def test_current_endpoint():
+    """Verify that /api/current returns valid telemetry structure for a supported city."""
+    response = client.get("/api/current?city=Delhi")
+    assert response.status_code == 200
+    res = response.json()
+    assert res["status"] == "success"
+    data = res["data"]
+    assert data["city"] == "Delhi"
+    assert "is_live" in data
+    assert "station_name" in data
+    assert "observation_time" in data
+    assert "retrieval_time" in data
+    assert "source_name" in data
+    assert "aqi" in data
+    assert "category" in data
+
+
+def test_air_quality_includes_current_live():
+    """Verify that /api/air-quality includes the current_live field."""
+    response = client.get("/api/air-quality?city=Delhi")
+    assert response.status_code == 200
+    data = response.json()
+    assert "current_live" in data
+    live = data["current_live"]
+    assert "city" in live
+    assert "pm25" in live
+    assert "aqi" in live
+
+
+def test_prediction_live_endpoint():
+    """Verify that /api/prediction/live generates a 1-hour ahead forecast from telemetry."""
+    response = client.post("/api/prediction/live", json={"city": "Delhi"})
+    assert response.status_code == 200
+    data = response.json()
+    assert data["status"] == "success"
+    assert "predicted_pm25" in data
+    assert "predicted_aqi" in data
+    assert "forecast_target_time" in data
+    assert "forecast_horizon_hours" in data
+    assert data["forecast_horizon_hours"] == 1
+    assert "current_pm25" in data
+    assert "delta_pm25" in data

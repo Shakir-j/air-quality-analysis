@@ -4,6 +4,7 @@
 # Core data
 pandas>=2.3.0
 numpy>=2.3.0
+pyarrow>=26.0.0
 
 # Visualization
 matplotlib>=3.10.0

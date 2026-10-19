@@ -262,3 +262,27 @@ def load_processed() -> pd.DataFrame:
         if cat_col in df.columns:
             df[cat_col] = df[cat_col].astype("category")
     return df
+
+
+if __name__ == "__main__":
+    import argparse
+    from src.data_loader import load_all_stations
+    from src.generate_cache import CITY_COORDINATES
+
+    parser = argparse.ArgumentParser(description="AIRWISE Data Preprocessing Pipeline")
+    parser.add_argument(
+        "--all",
+        action="store_true",
+        help="Process ALL national stations (Warning: requires 10+ GB RAM). Default: 10 target cities.",
+    )
+    args = parser.parse_args()
+
+    target_cities = None if args.all else list(CITY_COORDINATES.keys())
+    if target_cities:
+        print(f"Running preprocessing for {len(target_cities)} target cities: {target_cities}")
+    else:
+        print("Running preprocessing for ALL stations across India...")
+
+    raw_data = load_all_stations(city_filter=target_cities, verbose=True)
+    clean_data = preprocess(raw_data, save=True, verbose=True)
+    print("\n[SUCCESS] Preprocessing completed successfully.")

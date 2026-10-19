@@ -40,21 +40,57 @@ async function loadFeaturedCityAQ(cityName) {
   }
 
   const lat = data.latest_recorded;
+  const live = data.current_live;
+  const isLive = live && live.is_live;
+
+  const displayData = isLive ? live : lat;
+  const displayColor = displayData.color || lat.color || "#10b981";
+  const displayCategory = displayData.category || lat.category || "Moderate";
+  const displayAQI = Math.round(displayData.aqi !== undefined && displayData.aqi !== null ? displayData.aqi : lat.aqi);
+  const health = getHealthGuidance(displayCategory);
+
   if (timeBadge) {
-    timeBadge.textContent = `Recorded: ${lat.timestamp.split(" ")[0]} at ${lat.station_location || "Monitoring Network"}`;
+    if (isLive) {
+      timeBadge.innerHTML = `<span class="live-badge-pill"><span class="live-pulse-dot"></span> LIVE CPCB TELEMETRY</span>`;
+    } else {
+      timeBadge.innerHTML = `<span class="badge" style="background: rgba(148, 163, 184, 0.15); color: var(--text-secondary); border: 1px solid var(--border-subtle);">HISTORICAL BASELINE (2010–2023)</span>`;
+    }
   }
 
-  const health = getHealthGuidance(lat.category);
+  const pm25Val = displayData.pm25 !== null && displayData.pm25 !== undefined ? displayData.pm25 : "—";
+  const pm10Val = displayData.pm10 !== null && displayData.pm10 !== undefined ? displayData.pm10 : (lat.pm10 !== null ? lat.pm10 : "—");
+  const no2Val = displayData.no2 !== null && displayData.no2 !== undefined ? displayData.no2 : (lat.no2 !== null ? lat.no2 : "—");
+  const so2Val = displayData.so2 !== null && displayData.so2 !== undefined ? displayData.so2 : (lat.so2 !== null ? lat.so2 : "—");
+
+  const aqiTypeLabel = isLive
+    ? (live.aqi_type || "PM2.5 Sub-Index (CPCB Breakpoint Formula)")
+    : "Historical CPCB Archive Record";
+
+  const provenanceHtml = isLive
+    ? `<div style="margin-top: 10px; padding: 10px 14px; background: rgba(20, 184, 166, 0.08); border-radius: 6px; border: 1px solid rgba(20, 184, 166, 0.25); font-size: 12px; color: var(--text-secondary); line-height: 1.5;">
+        <div style="font-weight: 600; color: var(--accent-teal); margin-bottom: 2px;">
+          📡 Verified Real-Time Observation: ${live.station_name || cityName}
+        </div>
+        <div>
+          Observed: <strong>${live.observation_time}</strong> | Ingested by AIRWISE: <strong>${live.retrieval_time}</strong>
+        </div>
+        <div style="font-size: 11px; color: var(--text-muted); margin-top: 3px;">
+          Source: ${live.source_name || "CPCB CAAQMS Network"} (${live.source_attribution || "CPCB / MoEFCC"})
+        </div>
+      </div>`
+    : `<div style="margin-top: 8px; color: var(--text-muted); font-size: 12px;">
+        ⚠️ <em>Displaying verified historical baseline from CPCB monitoring network (${lat.timestamp.split(" ")[0]} at ${lat.station_location || cityName}). Real-time live sensor feed is currently offline or rate-limited.</em>
+      </div>`;
 
   container.innerHTML = `
     <div class="aqi-summary-layout">
       <!-- Left: Big AQI Badge -->
-      <div class="aqi-badge-hero" style="border-left-color: ${lat.color};">
-        <span class="aqi-label-eyebrow">CPCB Air Quality Index</span>
-        <div class="aqi-category-title" style="color: ${lat.color};">${lat.category}</div>
+      <div class="aqi-badge-hero" style="border-left-color: ${displayColor};">
+        <span class="aqi-label-eyebrow">${aqiTypeLabel}</span>
+        <div class="aqi-category-title" style="color: ${displayColor};">${displayCategory}</div>
         <div class="aqi-subindex-display">
-          <span class="aqi-num-val" style="color: ${lat.color};">${Math.round(lat.aqi)}</span>
-          <span class="aqi-num-unit">NAQI Sub-Index</span>
+          <span class="aqi-num-val" style="color: ${displayColor};">${displayAQI}</span>
+          <span class="aqi-num-unit">${isLive ? "CPCB Sub-Index" : "NAQI Score"}</span>
         </div>
         <div class="aqi-primary-pollutant">
           <strong>Dominant Pollutant:</strong> Fine Particulates (PM2.5)
@@ -66,31 +102,29 @@ async function loadFeaturedCityAQ(cityName) {
         <div class="pollutants-mini-row">
           <div class="mini-pollutant-card">
             <div class="mini-poll-name">PM2.5</div>
-            <div class="mini-poll-val">${lat.pm25 !== null ? lat.pm25 : "—"}</div>
+            <div class="mini-poll-val">${pm25Val}</div>
             <div class="mini-poll-unit">µg/m³ (Std: 60)</div>
           </div>
           <div class="mini-pollutant-card">
             <div class="mini-poll-name">PM10</div>
-            <div class="mini-poll-val">${lat.pm10 !== null ? lat.pm10 : "—"}</div>
+            <div class="mini-poll-val">${pm10Val}</div>
             <div class="mini-poll-unit">µg/m³ (Std: 100)</div>
           </div>
           <div class="mini-pollutant-card">
             <div class="mini-poll-name">NO₂</div>
-            <div class="mini-poll-val">${lat.no2 !== null ? lat.no2 : "—"}</div>
+            <div class="mini-poll-val">${no2Val}</div>
             <div class="mini-poll-unit">µg/m³ (Std: 80)</div>
           </div>
           <div class="mini-pollutant-card">
             <div class="mini-poll-name">SO₂</div>
-            <div class="mini-poll-val">${lat.so2 !== null ? lat.so2 : "—"}</div>
+            <div class="mini-poll-val">${so2Val}</div>
             <div class="mini-poll-unit">µg/m³ (Std: 80)</div>
           </div>
         </div>
 
         <div class="aqi-health-interpretation">
           <span class="health-callout-bold">Health Impact:</span> ${health.advisory}
-          <div style="margin-top: 6px; color: var(--text-muted); font-size: 12px;">
-            ⚠️ <em>Historical recorded data from CPCB network. Not a real-time sensor stream.</em>
-          </div>
+          ${provenanceHtml}
         </div>
       </div>
     </div>

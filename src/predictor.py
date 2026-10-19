@@ -320,6 +320,82 @@ def predict_from_simple_inputs(
     return predict_from_features(feature_dict)
 
 
+def predict_from_live_observation(live_data: dict[str, Any]) -> dict[str, Any]:
+    """
+    Generate next-hour PM2.5 prediction using real-time or cached station observations.
+    Bridges live sensor inputs (PM2.5, co-pollutants, weather) to the trained XGBoost model.
+    """
+    import datetime
+
+    pollutants = live_data.get("pollutants", {})
+    weather = live_data.get("weather", {})
+
+    current_pm25 = float(pollutants.get("PM2.5", live_data.get("pm25", 50.0)))
+    no2 = float(pollutants.get("NO2", live_data.get("no2"))) if ("NO2" in pollutants or "no2" in live_data) and pollutants.get("NO2", live_data.get("no2")) is not None else None
+    co = float(pollutants.get("CO", live_data.get("co"))) if ("CO" in pollutants or "co" in live_data) and pollutants.get("CO", live_data.get("co")) is not None else None
+    so2 = float(pollutants.get("SO2", live_data.get("so2"))) if ("SO2" in pollutants or "so2" in live_data) and pollutants.get("SO2", live_data.get("so2")) is not None else None
+    ozone = float(pollutants.get("Ozone", live_data.get("ozone"))) if ("Ozone" in pollutants or "ozone" in live_data) and pollutants.get("Ozone", live_data.get("ozone")) is not None else None
+
+    temp = float(weather.get("temperature", live_data.get("temperature"))) if ("temperature" in weather or "temperature" in live_data) and weather.get("temperature", live_data.get("temperature")) is not None else None
+    rh = float(weather.get("relative_humidity", live_data.get("humidity"))) if ("relative_humidity" in weather or "humidity" in live_data) and weather.get("relative_humidity", live_data.get("humidity")) is not None else None
+    ws = float(weather.get("wind_speed", live_data.get("wind_speed"))) if ("wind_speed" in weather or "wind_speed" in live_data) and weather.get("wind_speed", live_data.get("wind_speed")) is not None else None
+
+    obs_time_str = live_data.get("observation_time", "")
+    obs_dt = None
+    if obs_time_str:
+        for fmt in ("%d-%m-%Y %H:%M:%S", "%Y-%m-%d %H:%M:%S", "%Y-%m-%dT%H:%M"):
+            try:
+                obs_dt = datetime.datetime.strptime(obs_time_str, fmt)
+                break
+            except Exception:
+                pass
+
+    if obs_dt is None:
+        obs_dt = datetime.datetime.now()
+
+    target_dt = obs_dt + datetime.timedelta(hours=1)
+    target_time_str = target_dt.strftime("%Y-%m-%d %H:%M:00")
+
+    forecast = predict_from_simple_inputs(
+        pm25_current=current_pm25,
+        hour=obs_dt.hour,
+        month=obs_dt.month,
+        day_of_week=obs_dt.weekday(),
+        is_weekend=1 if obs_dt.weekday() >= 5 else 0,
+        no2=no2,
+        co=co,
+        so2=so2,
+        ozone=ozone,
+        relative_humidity=rh,
+        wind_speed=ws,
+        temperature=temp,
+    )
+
+    pred_pm25 = forecast["predicted_pm25"]
+    delta = round(pred_pm25 - current_pm25, 1)
+
+    source = live_data.get("source_name") or live_data.get("data_source") or "CPCB Monitoring Network"
+
+    forecast.update({
+        "city": live_data.get("city", "Delhi"),
+        "station_name": live_data.get("station_name", "CAAQMS Station"),
+        "current_measured_pm25": current_pm25,
+        "current_pm25": current_pm25,
+        "delta_pm25": delta,
+        "delta_direction": "up" if delta > 0.5 else ("down" if delta < -0.5 else "stable"),
+        "observation_time": obs_time_str or obs_dt.strftime("%Y-%m-%d %H:%M:%S"),
+        "target_forecast_time": target_time_str,
+        "forecast_target_time": target_time_str,
+        "forecast_horizon": "1-hour ahead (t+1)",
+        "forecast_horizon_hours": 1,
+        "is_live_input": live_data.get("is_live", False),
+        "data_source": source,
+        "source_name": source,
+    })
+
+    return forecast
+
+
 def get_feature_importances(top_n: int = 15) -> pd.DataFrame:
     """
     Extract feature importance scores from the final model (if tree-based/ensemble).

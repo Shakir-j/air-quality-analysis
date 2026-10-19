@@ -86,6 +86,11 @@ class PredictionRequest(BaseModel):
     is_weekend: Optional[int] = Field(0, ge=0, le=1)
 
 
+class LivePredictionRequest(BaseModel):
+    city: Optional[str] = Field("Delhi", description="Target city for real-data prediction")
+
+
+
 # ── API Endpoints ────────────────────────────────────────────────────────────
 
 @app.get("/api/locations")
@@ -142,6 +147,9 @@ def get_air_quality(
                 selected_station = s
                 break
 
+    from src.live_data import get_current_air_quality
+    current_live = get_current_air_quality(city, historical_cache=cache)
+
     return {
         "status": "success",
         "city": city,
@@ -156,6 +164,23 @@ def get_air_quality(
         "recent_trend": city_data["recent_trend"],
         "diurnal_pattern": cache["diurnal_patterns"].get(city, cache["diurnal_patterns"]["National"]),
         "national_diurnal": cache["diurnal_patterns"]["National"],
+        "current_live": current_live,
+    }
+
+
+@app.get("/api/current")
+def get_current(city: str = Query("Delhi", description="Target city")):
+    """
+    Return the latest available air-quality observation and weather data.
+    External live requests require AIRWISE_ENABLE_LIVE_DATA to be enabled;
+    otherwise, the historical archive baseline is returned.
+    """
+    from src.live_data import get_current_air_quality
+    cache = get_cache()
+    live_info = get_current_air_quality(city, historical_cache=cache)
+    return {
+        "status": "success",
+        "data": live_info,
     }
 
 
@@ -286,6 +311,39 @@ def predict_air_quality(req: PredictionRequest):
             "precautions": meta["precautions"],
             "provenance": "Model prediction (1-hour ahead forecast)",
         }
+
+
+@app.post("/api/prediction/live")
+def predict_from_live(req: LivePredictionRequest):
+    """
+    Generate next-hour PM2.5 prediction using current real-world observations.
+    Bridges live CPCB sensor telemetry and Open-Meteo weather to the XGBoost model.
+    """
+    try:
+        from src.live_data import get_current_air_quality
+        from src.predictor import predict_from_live_observation
+
+        cache = get_cache()
+        target_city = req.city or "Delhi"
+        live_info = get_current_air_quality(target_city, historical_cache=cache)
+        forecast = predict_from_live_observation(live_info)
+
+        return {
+            "status": "success",
+            "forecast": forecast,
+            "input_telemetry": live_info,
+            "predicted_pm25": forecast["predicted_pm25"],
+            "predicted_aqi": forecast["predicted_aqi"],
+            "aqi_category": forecast["aqi_category"],
+            "forecast_target_time": forecast.get("forecast_target_time"),
+            "forecast_horizon_hours": 1,
+            "current_pm25": forecast.get("current_pm25"),
+            "delta_pm25": forecast.get("delta_pm25"),
+        }
+    except Exception as e:
+        logger.error(f"Live prediction failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 
 
 # ── Mount Frontend Static Assets ─────────────────────────────────────────────

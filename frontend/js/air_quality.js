@@ -85,25 +85,48 @@ function renderAQMainIndicator(data) {
   const container = document.getElementById("aq-main-indicator");
   if (!container) return;
 
-  const lat = data.latest_recorded;
-  const health = getHealthGuidance(lat.category);
+  const lat = data.latest_recorded || {};
+  const live = data.current_live;
+  const isLive = live && live.is_live;
 
+  const displayData = isLive ? live : lat;
+  const displayColor = displayData.color || lat.color || "#10b981";
+  const displayCategory = displayData.category || lat.category || "Moderate";
+  const displayAQI = Math.round(displayData.aqi !== undefined && displayData.aqi !== null ? displayData.aqi : lat.aqi);
+  const health = getHealthGuidance(displayCategory);
   const avgs = data.pollutant_averages || {};
+
+  const aqiTypeLabel = isLive
+    ? (live.aqi_type || "PM2.5 Sub-Index (CPCB Breakpoint Formula)")
+    : "Historical CPCB Archive Record";
+
+  const badgeHtml = isLive
+    ? `<span class="live-badge-pill"><span class="live-pulse-dot"></span> Live CPCB Telemetry</span>`
+    : `<span class="badge" style="background-color: ${displayColor}22; color: ${displayColor}; border: 1px solid ${displayColor}66;">${displayCategory}</span>`;
+
+  const metaFooterHtml = isLive
+    ? `<div style="font-size: 12px; color: var(--text-muted); border-top: 1px solid var(--border-subtle); padding-top: 12px; margin-top: 16px; line-height: 1.5;">
+        <div>📡 <strong>Live Station:</strong> ${live.station_name || data.city}</div>
+        <div><strong>Observed:</strong> ${live.observation_time} • <strong>Ingested:</strong> ${live.retrieval_time}</div>
+        <div style="font-size: 11px; margin-top: 2px;"><strong>Source:</strong> ${live.source_name || "CPCB CAAQMS via data.gov.in"}</div>
+      </div>`
+    : `<div style="font-size: 12px; color: var(--text-muted); border-top: 1px solid var(--border-subtle); padding-top: 12px; margin-top: 16px; line-height: 1.5;">
+        <div>⚠️ <strong>Historical Baseline:</strong> Recorded at ${lat.timestamp ? lat.timestamp.split(" ")[0] : "Archive"}</div>
+        <div><strong>Station:</strong> ${lat.station_location || data.city} (Live telemetry offline / fallback)</div>
+      </div>`;
 
   container.innerHTML = `
     <div>
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-        <span class="aqi-label-eyebrow">National Air Quality Index</span>
-        <span class="badge" style="background-color: ${lat.color}22; color: ${lat.color}; border: 1px solid ${lat.color}66;">
-          ${lat.category}
-        </span>
+        <span class="aqi-label-eyebrow">${aqiTypeLabel}</span>
+        ${badgeHtml}
       </div>
 
       <div style="display: flex; align-items: baseline; gap: 12px; margin-bottom: 8px;">
-        <span style="font-size: 52px; font-weight: 800; color: ${lat.color}; line-height: 1;">
-          ${Math.round(lat.aqi)}
+        <span style="font-size: 52px; font-weight: 800; color: ${displayColor}; line-height: 1;">
+          ${displayAQI}
         </span>
-        <span style="font-size: 15px; color: var(--text-muted); font-weight: 500;">NAQI Score</span>
+        <span style="font-size: 15px; color: var(--text-muted); font-weight: 500;">${isLive ? "Sub-Index" : "NAQI Score"}</span>
       </div>
 
       <p style="font-size: 14px; color: var(--text-secondary); margin-bottom: 20px;">
@@ -143,19 +166,17 @@ function renderAQMainIndicator(data) {
       </button>
     </div>
 
-    <div style="font-size: 12px; color: var(--text-muted); border-top: 1px solid var(--border-subtle); padding-top: 12px; margin-top: 16px;">
-      Recorded at: ${lat.timestamp.split(" ")[0]} • Station: ${lat.station_location || data.city}
-    </div>
+    ${metaFooterHtml}
   `;
 
   // Store current values for the send-to-prediction button
   window._aqCurrentData = {
     city: data.city,
-    pm25: lat.pm25 ?? avgs["PM2.5"] ?? null,
-    no2:  lat.no2  ?? avgs["NO2"]  ?? null,
-    so2:  lat.so2  ?? avgs["SO2"]  ?? null,
-    co:   lat.co   ?? avgs["CO"]   ?? null,
-    ozone: lat.ozone ?? avgs["Ozone"] ?? null,
+    pm25: (isLive && live.pm25 !== null && live.pm25 !== undefined) ? live.pm25 : (lat.pm25 ?? avgs["PM2.5"] ?? null),
+    no2:  (isLive && live.no2 !== null && live.no2 !== undefined)  ? live.no2  : (lat.no2  ?? avgs["NO2"]  ?? null),
+    so2:  (isLive && live.so2 !== null && live.so2 !== undefined)  ? live.so2  : (lat.so2  ?? avgs["SO2"]  ?? null),
+    co:   (isLive && live.co !== null && live.co !== undefined)   ? live.co   : (lat.co   ?? avgs["CO"]   ?? null),
+    ozone: (isLive && live.ozone !== null && live.ozone !== undefined) ? live.ozone : (lat.ozone ?? avgs["Ozone"] ?? null),
   };
 }
 
@@ -165,14 +186,16 @@ function renderPollutantCards(data) {
 
   const avgs = data.pollutant_averages || {};
   const lat = data.latest_recorded || {};
+  const live = data.current_live;
+  const isLive = live && live.is_live;
 
   const pollutantsConfig = [
-    { key: "PM2.5", name: "PM2.5", unit: "µg/m³", standard: 60, val: lat.pm25, avg: avgs["PM2.5"] },
-    { key: "PM10", name: "PM10", unit: "µg/m³", standard: 100, val: lat.pm10, avg: avgs["PM10"] },
-    { key: "NO2", name: "NO₂", unit: "µg/m³", standard: 80, val: lat.no2, avg: avgs["NO2"] },
-    { key: "SO2", name: "SO₂", unit: "µg/m³", standard: 80, val: lat.so2, avg: avgs["SO2"] },
-    { key: "CO", name: "CO", unit: "mg/m³", standard: 2.0, val: lat.co, avg: avgs["CO"] },
-    { key: "Ozone", name: "Ozone (O₃)", unit: "µg/m³", standard: 100, val: lat.ozone, avg: avgs["Ozone"] },
+    { key: "PM2.5", name: "PM2.5", unit: "µg/m³", standard: 60, val: (isLive && live.pm25 !== null && live.pm25 !== undefined) ? live.pm25 : lat.pm25, avg: avgs["PM2.5"] },
+    { key: "PM10", name: "PM10", unit: "µg/m³", standard: 100, val: (isLive && live.pm10 !== null && live.pm10 !== undefined) ? live.pm10 : lat.pm10, avg: avgs["PM10"] },
+    { key: "NO2", name: "NO₂", unit: "µg/m³", standard: 80, val: (isLive && live.no2 !== null && live.no2 !== undefined) ? live.no2 : lat.no2, avg: avgs["NO2"] },
+    { key: "SO2", name: "SO₂", unit: "µg/m³", standard: 80, val: (isLive && live.so2 !== null && live.so2 !== undefined) ? live.so2 : lat.so2, avg: avgs["SO2"] },
+    { key: "CO", name: "CO", unit: "mg/m³", standard: 2.0, val: (isLive && live.co !== null && live.co !== undefined) ? live.co : lat.co, avg: avgs["CO"] },
+    { key: "Ozone", name: "Ozone (O₃)", unit: "µg/m³", standard: 100, val: (isLive && live.ozone !== null && live.ozone !== undefined) ? live.ozone : lat.ozone, avg: avgs["Ozone"] },
   ];
 
   container.innerHTML = pollutantsConfig
@@ -180,7 +203,7 @@ function renderPollutantCards(data) {
       const displayVal = p.val !== null && p.val !== undefined ? p.val : (p.avg !== null ? p.avg : "—");
       const isNum = typeof displayVal === "number";
       const ratio = isNum ? Math.min(100, Math.round((displayVal / p.standard) * 100)) : 0;
-      
+
       let barColor = "var(--aqi-good)";
       if (ratio >= 75) barColor = "var(--aqi-moderate)";
       if (ratio >= 100) barColor = "var(--aqi-poor)";
@@ -191,7 +214,7 @@ function renderPollutantCards(data) {
         <div class="pollutant-card">
           <div>
             <div class="pollutant-header">
-              <span class="pollutant-name">${p.name}</span>
+              <span class="pollutant-name">${p.name} ${isLive && p.val !== null ? '<span style="font-size:10px; color:var(--accent-teal); font-weight:700;">LIVE</span>' : ""}</span>
               <span class="pollutant-standard">Std: ${p.standard} ${p.unit}</span>
             </div>
             <div class="pollutant-reading">
@@ -221,7 +244,7 @@ function renderAQRecentTrendChart(data) {
   const trend = data.recent_trend;
   const times = trend.map((t) => t.time);
   const activePoll = AppState.selectedPollutant || "PM2.5";
-  
+
   const pollKeyMap = {
     "PM2.5": "pm25",
     "PM10": "pm10",
@@ -511,15 +534,15 @@ function sendToPrediction() {
       "Patna": { "winter": { temp: 16, rh: 70, ws: 1.5 }, "summer": { temp: 33, rh: 30, ws: 2.8 }, "monsoon": { temp: 29, rh: 82, ws: 2.2 }, "post_monsoon": { temp: 25, rh: 65, ws: 1.5 } },
       "Pune": { "winter": { temp: 20, rh: 50, ws: 2.0 }, "summer": { temp: 31, rh: 35, ws: 3.5 }, "monsoon": { temp: 25, rh: 80, ws: 4.5 }, "post_monsoon": { temp: 24, rh: 60, ws: 2.5 } }
     };
-    
+
     let season = "winter";
     if (currentMonth >= 3 && currentMonth <= 5) season = "summer";
     else if (currentMonth >= 6 && currentMonth <= 9) season = "monsoon";
     else if (currentMonth >= 10 && currentMonth <= 11) season = "post_monsoon";
-    
+
     const cityClimate = climateLookup[d.city] || climateLookup["Delhi"];
     const weather = cityClimate[season];
-    
+
     setVal("pred-temp", weather.temp);
     setVal("pred-rh", weather.rh);
     setVal("pred-ws", weather.ws);
