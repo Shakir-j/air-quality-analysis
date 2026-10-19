@@ -1,0 +1,290 @@
+/* AIRWISE Air Quality page ? visual refinement using existing HTML classes */
+
+#section-air-quality {
+  padding-bottom: 48px;
+  background:
+    radial-gradient(ellipse at 5% 7%, rgba(191, 216, 198, .28), transparent 36%),
+    linear-gradient(155deg, #eef3ec 0%, #eaf1ed 57%, #f1f3eb 100%);
+}
+
+#section-air-quality .page-header {
+  padding-top: 46px;
+  padding-bottom: 25px;
+}
+
+#section-air-quality .page-title {
+  font-size: clamp(2.05rem, 3vw, 2.75rem);
+  color: #203b33;
+}
+
+#section-air-quality .page-subtitle {
+  max-width: 760px;
+  color: #60746b;
+}
+
+/* Exact controls wrapper from the current HTML */
+#section-air-quality .controls-bar {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: end;
+  gap: 17px;
+  padding: 20px;
+  background: rgba(251, 252, 248, .96);
+  border: 1px solid #d8e4da;
+  border-radius: 17px;
+  box-shadow: 0 7px 23px rgba(29, 68, 51, .055);
+}
+
+#section-air-quality .control-item {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+#section-air-quality .control-label {
+  color: #596f64;
+  font-size: 11px;
+  font-weight: 750;
+  letter-spacing: .07em;
+  text-transform: uppercase;
+}
+
+#section-air-quality .form-select {
+  width: 100%;
+  min-width: 0;
+  min-height: 47px;
+  padding: 0 13px;
+  border: 1px solid #d2dfd5;
+  border-radius: 10px;
+  color: #253e34;
+  background-color: #fbfcf8;
+  box-shadow: 0 1px 2px rgba(24, 61, 49, .025);
+}
+
+#section-air-quality .form-select:hover {
+  border-color: #9fbdac;
+}
+
+#section-air-quality .form-select:focus {
+  outline: none;
+  border-color: #438b78;
+  box-shadow: 0 0 0 3px rgba(40, 124, 112, .10);
+}
+
+/* Main AQI area and six real pollutant cards */
+#section-air-quality .aq-status-layout {
+  display: grid;
+  grid-template-columns: minmax(260px, .83fr) minmax(0, 1.7fr);
+  gap: 20px;
+  align-items: stretch;
+}
+
+#section-air-quality .aq-main-indicator {
+  min-width: 0;
+  overflow: hidden;
+  background: linear-gradient(150deg, #fcfdf8 0%, #e2eee5 100%);
+  border: 1px solid #cfdfd3;
+  border-radius: 18px;
+  box-shadow: 0 8px 26px rgba(26, 66, 51, .06);
+}
+
+#section-air-quality .aqi-summary-layout {
+  gap: 20px;
+}
+
+#section-air-quality .aqi-badge-hero {
+  border-radius: 13px;
+}
+
+#section-air-quality .aqi-num-val {
+  letter-spacing: -.055em;
+  font-size: clamp(2.6rem, 4vw, 3.6rem);
+}
+
+#section-air-quality .pollutants-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 13px;
+  min-width: 0;
+}
+
+#section-air-quality .pollutant-card {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 17px;
+  background: linear-gradient(155deg, #fffdf9 0%, #f5f7f0 100%);
+  border: 1px solid #dbe5dc;
+  border-radius: 14px;
+  box-shadow: 0 3px 12px rgba(28, 63, 50, .035);
+  transition: transform .18s ease, border-color .18s ease, box-shadow .18s ease;
+}
+
+#section-air-quality .pollutant-card:hover {
+  transform: translateY(-2px);
+  border-color: #b2cdbc;
+  box-shadow: 0 8px 19px rgba(28, 63, 50, .07);
+}
+
+#section-air-quality .pollutant-card.active-focus {
+  border-color: #398677;
+  box-shadow: inset 0 0 0 1px rgba(40, 124, 112, .28), 0 4px 16px rgba(40, 124, 112, .07);
+}
+
+#section-air-quality .pollutant-name {
+  color: #28473b;
+  font-weight: 750;
+}
+
+#section-air-quality .pollutant-standard,
+#section-air-quality .pollutant-unit {
+  color: #78867e;
+}
+
+#section-air-quality .pollutant-val {
+  color: #1e3e33;
+  font-size: clamp(1.45rem, 2vw, 1.85rem);
+  letter-spacing: -.035em;
+}
+
+#section-air-quality .pollutant-bar-bg {
+  height: 5px;
+  background: #e3ece5;
+  border-radius: 99px;
+}
+
+#section-air-quality .pollutant-bar-fill {
+  border-radius: 99px;
+}
+
+/* Clear health guidance and accurate source notice */
+#section-air-quality .aqi-health-interpretation {
+  padding: 15px 17px;
+  color: #49685a;
+  background: #e6f0e7;
+  border: 1px solid #d2e3d4;
+  border-radius: 12px;
+  line-height: 1.7;
+}
+
+#section-air-quality .health-callout-bold {
+  color: #244d3d;
+}
+
+#section-air-quality .section-gap {
+  margin-top: 30px;
+  margin-bottom: 34px;
+}
+
+/* Historical chart panels */
+#section-air-quality .section-header {
+  margin-bottom: 16px;
+}
+
+#section-air-quality .chart-card {
+  min-width: 0;
+  padding: 22px;
+  background: #fcfdf9;
+  border: 1px solid #d9e4da;
+  border-radius: 17px;
+  box-shadow: 0 6px 22px rgba(27, 65, 51, .045);
+  overflow: hidden;
+}
+
+#section-air-quality .chart-card-title {
+  color: #28483d;
+  font-weight: 750;
+}
+
+#section-air-quality .chart-box,
+#section-air-quality .chart-box-sm {
+  min-width: 0;
+  max-width: 100%;
+}
+
+#section-air-quality .dual-chart-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+  align-items: stretch;
+}
+
+#section-air-quality .dual-chart-grid > .chart-card {
+  min-width: 0;
+}
+
+#section-air-quality .control-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+#section-air-quality .btn-outline {
+  color: #536b60;
+  background: #fafcf8;
+  border: 1px solid #d5e1d7;
+  border-radius: 9px;
+}
+
+#section-air-quality .btn-outline.active {
+  color: #174a43;
+  background: #e1eee5;
+  border-color: #b7d2c1;
+}
+
+#section-air-quality .btn-primary {
+  color: #fff;
+  background: #174a43;
+  border-color: #174a43;
+}
+
+#section-air-quality .btn-primary:hover {
+  background: #236156;
+  box-shadow: 0 6px 17px rgba(23, 74, 67, .15);
+}
+
+@media (max-width: 1000px) {
+  #section-air-quality .aq-status-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  #section-air-quality .pollutants-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 720px) {
+  #section-air-quality .controls-bar {
+    grid-template-columns: minmax(0, 1fr);
+    padding: 15px;
+  }
+
+  #section-air-quality .pollutants-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  #section-air-quality .pollutant-card {
+    padding: 14px;
+  }
+
+  #section-air-quality .dual-chart-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  #section-air-quality .chart-card {
+    padding: 15px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #section-air-quality .pollutant-card {
+    transition: none;
+  }
+
+  #section-air-quality .pollutant-card:hover {
+    transform: none;
+  }
+}
