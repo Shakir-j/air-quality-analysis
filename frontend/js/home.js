@@ -120,10 +120,10 @@ async function loadFeaturedCityAQ(cityName) {
         <div class="aqi-category-title" style="color: ${displayColor};">${displayCategory}</div>
         <div class="aqi-subindex-display">
           <span class="aqi-num-val" style="color: ${displayColor};">${displayAQI}</span>
-          <span class="aqi-num-unit">${isLive ? (live.aqi_type || "PM2.5 Sub-Index") : (historicalCompositeAvailable ? "Historical Composite AQI Estimate" : "PM2.5 Sub-Index ? composite unavailable")}</span>
+          <span class="aqi-num-unit">${isLive ? (live.aqi_type || "PM2.5 Sub-Index") : (historicalCompositeAvailable ? "Historical Composite AQI Estimate" : "PM2.5 sub-index; composite unavailable")}</span>
         </div>
         <div class="aqi-primary-pollutant">
-          <strong>Dominant Pollutant:</strong> ${isLive ? (live.main_pollutant || "PM2.5") : (historicalCompositeAvailable ? (lat.dominant_pollutant || "Unavailable") : "PM2.5 (sub-index only)")}
+          <strong>Dominant Pollutant:</strong> ${isLive ? (live.main_pollutant || "PM2.5") : (historicalCompositeAvailable ? (lat.dominant_pollutant || lat.main_pollutant || "Unavailable") : "PM2.5 (sub-index only)")}
         </div>
       </div>
 
@@ -209,7 +209,12 @@ function initIndiaMap() {
       fillOpacity: 0.85,
     }).addTo(homeMapInstance);
 
-    marker.bindTooltip(`<strong>${c.city}</strong><br>Mean PM2.5: ${c.overall_pm25_mean} µg/m³ (${c.overall_category})`, {
+    const latestAqiValue = c.latest_recorded?.aqi;
+    const latestAqiCategory = c.latest_recorded?.category || "Unavailable";
+    const latestAqiText = latestAqiValue !== null && latestAqiValue !== undefined && Number.isFinite(Number(latestAqiValue))
+      ? `${Math.round(Number(latestAqiValue))} (${latestAqiCategory})`
+      : "Unavailable";
+        marker.bindTooltip(`<strong>${c.city}</strong><br>Long-term archive mean PM2.5: ${c.overall_pm25_mean ?? "Unavailable"} ug/m3<br>Latest historical composite AQI estimate: ${latestAqiText}`, {
       className: "map-tooltip",
       direction: "top",
     });
@@ -231,9 +236,9 @@ function displayMapCityDetail(cityObj) {
 
   panel.innerHTML = `
     <div class="panel-city-name">${cityObj.city}</div>
-    <div class="panel-state-name">${cityObj.state} • ${cityObj.station_count} Active Stations</div>
-    <div class="panel-aqi-pill" style="background-color: ${cityObj.overall_color}22; color: ${cityObj.overall_color}; border: 1px solid ${cityObj.overall_color}55;">
-      Overall: ${cityObj.overall_category} (Avg: ${cityObj.overall_pm25_mean} µg/m³)
+    <div class="panel-state-name">${cityObj.state} | ${cityObj.station_count} stations in historical archive</div>
+    <div class="panel-aqi-pill">
+            Long-term archive mean PM2.5: ${cityObj.overall_pm25_mean ?? "Unavailable"} ug/m3
     </div>
 
     <div class="panel-stats-list">
@@ -246,12 +251,12 @@ function displayMapCityDetail(cityObj) {
         <span class="stat-val-bold">${cityObj.date_start.split(" ")[0]} to ${cityObj.date_end.split(" ")[0]}</span>
       </div>
       <div class="panel-stat-item">
-        <span class="stat-label">Latest Recorded PM2.5</span>
+        <span class="stat-label">Latest Historical PM2.5</span>
         <span class="stat-val-bold">${cityObj.latest_recorded.pm25} µg/m³</span>
       </div>
       <div class="panel-stat-item">
-        <span class="stat-label">Latest Recorded AQI</span>
-        <span class="stat-val-bold">${Math.round(cityObj.latest_recorded.aqi)} (${cityObj.latest_recorded.category})</span>
+        <span class="stat-label">Latest Historical Composite AQI Estimate</span>
+        <span class="stat-val-bold">${cityObj.latest_recorded.aqi !== null && cityObj.latest_recorded.aqi !== undefined && Number.isFinite(Number(cityObj.latest_recorded.aqi)) ? Math.round(Number(cityObj.latest_recorded.aqi)) + " (" + (cityObj.latest_recorded.category || "Unavailable") + ")" : "Unavailable"}</span>
       </div>
     </div>
 
@@ -275,7 +280,7 @@ async function loadHomeTrendChart(cityName, pollutant) {
   if (!chartEl) return;
 
   if (subtitle) {
-    subtitle.textContent = `Historical monthly ${pollutant} trajectory for ${cityName} (2010–2023).`;
+    subtitle.textContent = `Loading historical monthly ${pollutant} data for ${cityName}...`;
   }
 
   const res = await apiGet(`/api/trends?city=${encodeURIComponent(cityName)}&pollutant=${encodeURIComponent(pollutant)}`);
@@ -284,18 +289,35 @@ async function loadHomeTrendChart(cityName, pollutant) {
     return;
   }
 
-  const periods = res.monthly_trend.map((d) => d.period);
-  const values = res.monthly_trend.map((d) => {
-    if (pollutant === "PM10") return d.pm10;
-    if (pollutant === "NO2") return d.no2;
-    return d.pm25_mean;
-  });
+  const valueForTrend = (row) => {
+    if (pollutant === "PM10") return row.pm10;
+    if (pollutant === "NO2") return row.no2;
+    return row.pm25_mean;
+  };
+  const hasTrendValue = (row) => {
+    const value = valueForTrend(row);
+    return value !== null && value !== undefined && Number.isFinite(Number(value));
+  };
+  const availableFlags = res.monthly_trend.map(hasTrendValue);
+  const firstDataIndex = availableFlags.indexOf(true);
+  const lastDataIndex = availableFlags.lastIndexOf(true);
+  if (firstDataIndex < 0 || lastDataIndex < firstDataIndex) {
+    chartEl.innerHTML = `<div class="aqi-loading-placeholder">No valid ${pollutant} trend data available for ${cityName}.</div>`;
+    return;
+  }
+  const chartRows = res.monthly_trend.slice(firstDataIndex, lastDataIndex + 1);
+  const periods = chartRows.map((row) => row.period);
+  const values = chartRows.map((row) => hasTrendValue(row) ? Number(valueForTrend(row)) : null);
+  if (subtitle) {
+        subtitle.textContent = `Historical monthly ${pollutant} mean for ${cityName}, ${periods[0]} to ${periods[periods.length - 1]}. Missing months remain blank; a monthly mean cannot establish compliance with a 24-hour standard.`;
+  }
 
   const trace = {
     x: periods,
     y: values,
     type: "scatter",
     mode: "lines",
+    connectgaps: false,
     line: { color: "#14b8a6", width: 2.2 },
     fill: "tozeroy",
     fillcolor: "rgba(20, 184, 166, 0.08)",
@@ -311,7 +333,7 @@ async function loadHomeTrendChart(cityName, pollutant) {
     type: "scatter",
     mode: "lines",
     line: { color: "#ef4444", width: 1.5, dash: "dot" },
-    name: "CPCB 24h Standard",
+    name: "CPCB 24h Standard (reference only)",
     hovertemplate: `CPCB Standard: ${thresholdVal} µg/m³<extra></extra>`,
   };
 
@@ -354,23 +376,23 @@ async function loadHomeInsightCards() {
       <span class="insight-tag">Geographic Divide</span>
       <h3 class="insight-card-title">${ins.hotspots.highest_city} vs ${ins.hotspots.lowest_city}</h3>
       <p class="insight-card-body">
-        Indo-Gangetic cities record up to <strong>${ins.hotspots.ratio}x higher</strong> particulate pollution than coastal southern cities, shaped by landlocked stagnation.
+        Historical mean PM2.5 differs by up to <strong>${ins.hotspots.ratio}x</strong> between the compared cities. This is a descriptive comparison and does not establish the cause.
       </p>
     </div>
 
     <div class="insight-card">
       <span class="insight-tag">Seasonal Meteorology</span>
-      <h3 class="insight-card-title">${ins.seasonal.ratio}x Winter Surge</h3>
+      <h3 class="insight-card-title">${ins.seasonal.ratio}x Winter-to-Monsoon PM2.5 Ratio</h3>
       <p class="insight-card-body">
-        National average PM2.5 jumps from <strong>${ins.seasonal.monsoon_pm25} µg/m³</strong> in monsoon to <strong>${ins.seasonal.winter_pm25} µg/m³</strong> in winter due to thermal inversion.
+        Archive mean PM2.5 is <strong>${ins.seasonal.monsoon_pm25} ug/m3</strong> in monsoon and <strong>${ins.seasonal.winter_pm25} ug/m3</strong> in winter. This comparison describes a seasonal difference; it does not establish its cause.
       </p>
     </div>
 
     <div class="insight-card">
       <span class="insight-tag">Diurnal Rhythms</span>
-      <h3 class="insight-card-title">Peak Commute at ${ins.diurnal.peak_hour}:00</h3>
+      <h3 class="insight-card-title">Observed PM2.5 Peak: ${ins.diurnal.peak_hour}:00</h3>
       <p class="insight-card-body">
-        Daily particulate levels peak at night and during early rush hours (${ins.diurnal.peak_pm25} µg/m³), dropping to their trough in mid-afternoon.
+        The aggregated hourly profile peaks at <strong>${ins.diurnal.peak_pm25} ug/m3</strong> at this hour. This identifies a time-of-day pattern, not a source or cause.
       </p>
     </div>
 
@@ -378,7 +400,7 @@ async function loadHomeInsightCards() {
       <span class="insight-tag">Chemical Coupling</span>
       <h3 class="insight-card-title">PM2.5 & PM10 Correlation</h3>
       <p class="insight-card-body">
-        Fine and coarse particulates display an extremely strong correlation (<strong>r = ${ins.relationships.pm25_pm10_corr}</strong>), reflecting mutual combustion origins.
+        PM2.5 and PM10 co-vary in the historical archive (<strong>r = ${ins.relationships.pm25_pm10_corr}</strong>). Correlation alone does not establish a common source.
       </p>
     </div>
   `;
