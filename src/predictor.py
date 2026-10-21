@@ -146,25 +146,15 @@ def load_model_and_preprocessor() -> tuple[object, dict[str, Any]]:
     return model, preproc
 
 
+from src.aqi import calculate_pollutant_subindex
+
 def compute_aqi_from_pm25_scalar(pm25: float) -> tuple[float, str]:
-    """
-    Calculate the official CPCB Indian National Air Quality Index (NAQI)
-    sub-index for a scalar PM2.5 value (µg/m³).
-
-    Returns
-    -------
-    (aqi_value, aqi_category)
-    """
-    pm25 = max(0.0, float(pm25))
-
-    for c_lo, c_hi, i_lo, i_hi, cat in AQI_BREAKPOINTS_PM25:
-        if c_lo <= pm25 <= c_hi:
-            aqi = ((pm25 - c_lo) / (c_hi - c_lo)) * (i_hi - i_lo) + i_lo
-            return round(aqi, 1), cat
-
-    # Above 500 ug/m3 -> capped at 500 (Severe)
-    return 500.0, "Severe"
-
+    """Return the central PM2.5 sub-index and category."""
+    result = calculate_pollutant_subindex("PM2.5", pm25)
+    if result is None:
+        raise ValueError("PM2.5 concentration must be a finite number")
+    index, category, _color = result
+    return index, category
 
 def predict_from_features(features_input: dict[str, Any] | pd.DataFrame) -> dict[str, Any]:
     """
@@ -265,21 +255,39 @@ def predict_from_simple_inputs(
     import datetime
     current_year = datetime.datetime.now().year
 
+    # The current observation is one hour before the forecast target.
     lag_1h = float(pm25_current)
-    lag_2h = float(pm25_lag_2h) if pm25_lag_2h is not None else lag_1h
-    lag_3h = float(pm25_lag_3h) if pm25_lag_3h is not None else lag_2h
-    lag_6h = lag_3h
-    lag_12h = lag_3h
-    lag_24h = lag_3h
 
-    # Approximate rolling stats from supplied lags
-    recent_vals = [lag_1h, lag_2h, lag_3h]
-    roll_mean_3h = float(np.mean(recent_vals))
-    roll_std_3h = float(np.std(recent_vals)) if len(recent_vals) > 1 else 0.0
-    roll_mean_6h = roll_mean_3h
-    roll_std_6h = roll_std_3h
-    roll_mean_24h = roll_mean_3h
-    roll_std_24h = roll_std_3h
+    lag_2h = (
+        float(pm25_lag_2h)
+        if pm25_lag_2h is not None
+        else float("nan")
+    )
+    lag_3h = (
+        float(pm25_lag_3h)
+        if pm25_lag_3h is not None
+        else float("nan")
+    )
+
+    # The interactive form does not provide reliable values for these lags.
+    # Leave them missing; do not copy the third-hour value into longer lags.
+    lag_6h = float("nan")
+    lag_12h = float("nan")
+    lag_24h = float("nan")
+
+    if pm25_lag_2h is not None and pm25_lag_3h is not None:
+        recent_vals = [lag_1h, lag_2h, lag_3h]
+        roll_mean_3h = float(np.mean(recent_vals))
+        roll_std_3h = float(np.std(recent_vals, ddof=1))
+    else:
+        roll_mean_3h = float("nan")
+        roll_std_3h = float("nan")
+
+    # Do not pretend a few observations represent complete 6h/24h windows.
+    roll_mean_6h = float("nan")
+    roll_std_6h = float("nan")
+    roll_mean_24h = float("nan")
+    roll_std_24h = float("nan")
 
     feature_dict = {
         # Temporal — cap year at 2023 (training data max) to stay in-distribution

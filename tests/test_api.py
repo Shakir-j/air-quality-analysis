@@ -134,3 +134,95 @@ def test_prediction_live_endpoint():
     assert data["forecast_horizon_hours"] == 1
     assert "current_pm25" in data
     assert "delta_pm25" in data
+
+def test_recent_trend_is_48_hourly_city_averages():
+    from datetime import datetime, timedelta
+
+    response = client.get("/api/air-quality?city=Chennai")
+    assert response.status_code == 200
+    data = response.json()
+
+    trend = data["recent_trend"]
+    assert len(trend) == 48
+
+    times = [datetime.fromisoformat(point["time"]) for point in trend]
+    assert times == sorted(times)
+    assert len(set(times)) == 48
+    assert all(
+        later - earlier == timedelta(hours=1)
+        for earlier, later in zip(times, times[1:])
+    )
+
+    latest = data["latest_recorded"]
+    assert latest["observation_type"] == "city_hourly_mean"
+    assert latest["station_count_at_timestamp"] > 0
+    assert latest["timestamp"] == trend[-1]["time"]
+    assert "City-wide hourly mean" in latest["station_location"]
+
+
+def test_station_selection_returns_station_specific_archive_data():
+    city_response = client.get("/api/air-quality?city=Pune")
+    assert city_response.status_code == 200
+
+    city_data = city_response.json()
+    assert city_data["data_scope"] == "citywide"
+    assert city_data["stations"]
+
+    station = city_data["stations"][0]
+    response = client.get(
+        "/api/air-quality",
+        params={"city": "Pune", "station": station["station_id"]},
+    )
+    assert response.status_code == 200
+
+    data = response.json()
+    assert data["data_scope"] == "station"
+    assert data["selected_station"]["station_id"] == station["station_id"]
+    assert data["latest_recorded"]["station_location"] == station["station_location"]
+    assert data["latest_recorded"]["observation_type"] == "station_hourly_observation"
+    assert data["current_live"] is None
+    assert len(data["recent_trend"]) == 48
+
+    timestamps = [row["time"] for row in data["recent_trend"]]
+    assert len(set(timestamps)) == 48
+    assert timestamps == sorted(timestamps)
+    assert "PM2.5" in data["pollutant_averages"]
+    assert len(data["diurnal_pattern"]) == 24
+
+
+def test_unknown_station_is_rejected():
+    response = client.get(
+        "/api/air-quality",
+        params={"city": "Pune", "station": "UNKNOWN_STATION_ID"},
+    )
+    assert response.status_code == 404
+def test_prediction_endpoint_does_not_hide_model_failure(monkeypatch):
+    from src import predictor
+
+    def fail_model(*args, **kwargs):
+        raise RuntimeError("simulated model failure")
+
+    monkeypatch.setattr(
+        predictor,
+        "predict_from_simple_inputs",
+        fail_model,
+    )
+
+    response = client.post(
+        "/api/prediction",
+        json={
+            "city": "Delhi",
+            "pm25_current": 40.0,
+            "temperature": 25.0,
+            "relative_humidity": 60.0,
+            "wind_speed": 1.5,
+            "month": 10,
+            "hour": 12,
+            "is_weekend": 0,
+        },
+    )
+
+    assert response.status_code == 503
+    assert response.json()["detail"].startswith(
+        "PM2.5 prediction is temporarily unavailable"
+    )

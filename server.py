@@ -84,6 +84,7 @@ class PredictionRequest(BaseModel):
     month: Optional[int] = Field(11, ge=1, le=12)
     hour: Optional[int] = Field(18, ge=0, le=23)
     is_weekend: Optional[int] = Field(0, ge=0, le=1)
+    day_of_week: Optional[int] = Field(None, ge=0, le=6, description="Monday=0 through Sunday=6")
 
 
 class LivePredictionRequest(BaseModel):
@@ -138,17 +139,56 @@ def get_air_quality(
     
     city_data = cache["cities"][city]
     
-    # Filter stations if requested
+    # A station selection must change the returned observation data.
     stations = city_data["stations"]
+    requested_station = station.strip() if station else ""
     selected_station = None
-    if station:
-        for s in stations:
-            if s["station_id"] == station or s["station_location"] == station:
-                selected_station = s
+
+    if requested_station and requested_station.lower() != "all":
+        for item in stations:
+            if (
+                item["station_id"] == requested_station
+                or item["station_location"] == requested_station
+            ):
+                selected_station = item
                 break
 
-    from src.live_data import get_current_air_quality
-    current_live = get_current_air_quality(city, historical_cache=cache)
+        if selected_station is None:
+            from fastapi import HTTPException
+            raise HTTPException(
+                status_code=404,
+                detail=f"Station '{requested_station}' was not found in {city}.",
+            )
+
+        selected_data = city_data.get("station_data", {}).get(
+            selected_station["station_id"]
+        )
+        if selected_data is None:
+            from fastapi import HTTPException
+            raise HTTPException(
+                status_code=404,
+                detail="Historical readings are unavailable for this station.",
+            )
+
+        latest_recorded = selected_data["latest_recorded"]
+        pollutant_averages = selected_data["pollutant_averages"]
+        recent_trend = selected_data["recent_trend"]
+        diurnal_pattern = selected_data["diurnal_pattern"]
+
+        # City-level telemetry must not be presented as station telemetry.
+        current_live = None
+        data_scope = "station"
+    else:
+        latest_recorded = city_data["latest_recorded"]
+        pollutant_averages = city_data["pollutant_averages"]
+        recent_trend = city_data["recent_trend"]
+        diurnal_pattern = cache["diurnal_patterns"].get(
+            city, cache["diurnal_patterns"]["National"]
+        )
+
+        from src.live_data import get_current_air_quality
+        current_live = get_current_air_quality(city, historical_cache=cache)
+        data_scope = "citywide"
 
     return {
         "status": "success",
@@ -159,10 +199,11 @@ def get_air_quality(
         "station_count": city_data["station_count"],
         "stations": stations,
         "selected_station": selected_station,
-        "latest_recorded": city_data["latest_recorded"],
-        "pollutant_averages": city_data["pollutant_averages"],
-        "recent_trend": city_data["recent_trend"],
-        "diurnal_pattern": cache["diurnal_patterns"].get(city, cache["diurnal_patterns"]["National"]),
+        "data_scope": data_scope,
+        "latest_recorded": latest_recorded,
+        "pollutant_averages": pollutant_averages,
+        "recent_trend": recent_trend,
+        "diurnal_pattern": diurnal_pattern,
         "national_diurnal": cache["diurnal_patterns"]["National"],
         "current_live": current_live,
     }
@@ -260,19 +301,33 @@ def get_insights():
 
 @app.post("/api/prediction")
 def predict_air_quality(req: PredictionRequest):
-    """Predict next-hour PM2.5 and compute official CPCB AQI classification."""
+    """Predict next-hour PM2.5 and calculate its PM2.5-derived sub-index."""
     try:
         from src.predictor import predict_from_simple_inputs, compute_aqi_from_pm25_scalar, AQI_CATEGORIES
         
+        target_month = req.month if req.month is not None else 11
+        target_hour = req.hour if req.hour is not None else 18
+        if req.day_of_week is not None:
+            target_weekday = req.day_of_week
+        else:
+            target_weekday = 5 if req.is_weekend else 2
+        target_is_weekend = int(target_weekday >= 5)
+        season_by_month = {
+            12: 0, 1: 0, 2: 0,
+            3: 1, 4: 1, 5: 1,
+            6: 2, 7: 2, 8: 2, 9: 2,
+            10: 3, 11: 3,
+        }
+
         result = predict_from_simple_inputs(
             pm25_current=req.pm25_current,
             pm25_lag_2h=req.pm25_lag_2h,
             pm25_lag_3h=req.pm25_lag_3h,
-            hour=req.hour or 18,
-            month=req.month or 11,
-            day_of_week=5 if req.is_weekend else 2,
-            season_num=0 if req.month in [12, 1, 2] else (1 if req.month in [3, 4, 5] else (2 if req.month in [6, 7, 8, 9] else 3)),
-            is_weekend=req.is_weekend or 0,
+            hour=target_hour,
+            month=target_month,
+            day_of_week=target_weekday,
+            season_num=season_by_month[target_month],
+            is_weekend=target_is_weekend,
             no2=req.no2,
             co=req.co,
             so2=req.so2,
@@ -293,24 +348,14 @@ def predict_air_quality(req: PredictionRequest):
             "provenance": "Model prediction (1-hour ahead forecast)",
         }
     except Exception as e:
-        logger.warning(f"ML inference fallback engaged: {e}")
-        # Accurate physical fallback if model is reading or reloading
-        pred_val = round(req.pm25_current * 0.93 + (req.temperature if req.temperature is not None else 25) * -0.3 + (req.relative_humidity if req.relative_humidity is not None else 60) * 0.12 + (5.0 / max(req.wind_speed if req.wind_speed is not None else 1.5, 0.5)), 1)
-        pred_val = max(0.0, pred_val)
-        from src.predictor import compute_aqi_from_pm25_scalar, AQI_CATEGORIES
-        pred_aqi, cat = compute_aqi_from_pm25_scalar(pred_val)
-        meta = AQI_CATEGORIES.get(cat, AQI_CATEGORIES["Moderate"])
-        return {
-            "status": "success",
-            "predicted_pm25": pred_val,
-            "predicted_aqi": pred_aqi,
-            "aqi_category": cat,
-            "color": meta["color"],
-            "badge_bg": meta["badge_bg"],
-            "advisory": meta["advisory"],
-            "precautions": meta["precautions"],
-            "provenance": "Model prediction (1-hour ahead forecast)",
-        }
+        logger.exception("PM2.5 model inference failed")
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                "PM2.5 prediction is temporarily unavailable because model "
+                "inference failed. Check model artifacts and retry."
+            ),
+        ) from e
 
 
 @app.post("/api/prediction/live")

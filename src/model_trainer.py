@@ -240,7 +240,7 @@ def select_and_save_final(
     verbose: bool = True,
 ) -> tuple[object, pd.DataFrame, pd.DataFrame]:
     """
-    Evaluate tuned models on val + test, pick best by test RMSE.
+    Evaluate tuned models on validation and test sets; select by validation RMSE.
     Save final model and preprocessor (column medians).
 
     Returns
@@ -278,8 +278,8 @@ def select_and_save_final(
         print("\n=== TEST METRICS (final evaluation) ===")
         print(df_test.to_string(index=False))
 
-    # Select best model by test RMSE
-    best_name  = df_test.iloc[0]["Model"]
+    # Select on validation RMSE; keep the test set for final evaluation.
+    best_name  = df_val.iloc[0]["Model"]
     best_model = combined[best_name]
 
     if verbose:

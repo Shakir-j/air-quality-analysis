@@ -140,7 +140,7 @@ function loadPredictionPreset(presetKey) {
   setVal("pred-ws", p.ws);
   setVal("pred-month", p.month);
   setVal("pred-hour", p.hour);
-  setVal("pred-weekend", p.weekend);
+  setVal("pred-weekend", Number.isInteger(p.day_of_week) ? p.day_of_week : (p.weekend ? 5 : 2));
 
   // Auto trigger prediction for immediate responsiveness
   submitPredictionForm();
@@ -191,9 +191,10 @@ async function loadLivePredictionInputs() {
 
   // Time handling
   const now = new Date();
-  setVal("pred-month", now.getMonth() + 1);
-  setVal("pred-hour", now.getHours());
-  setVal("pred-weekend", (now.getDay() === 0 || now.getDay() === 6) ? 1 : 0);
+  const airwiseForecastTargetTime = new Date(now.getTime() + 3600000);
+  setVal("pred-month", airwiseForecastTargetTime.getMonth() + 1);
+  setVal("pred-hour", airwiseForecastTargetTime.getHours());
+  setVal("pred-weekend", (airwiseForecastTargetTime.getDay() + 6) % 7);
 
   // Update banner display
   const titleEl = document.getElementById("live-banner-title");
@@ -265,7 +266,8 @@ async function submitPredictionForm(telemetryContext = null) {
     wind_speed: getFloat("pred-ws", 1.5),
     month: getInt("pred-month", 11),
     hour: getInt("pred-hour", 18),
-    is_weekend: getInt("pred-weekend", 0),
+    day_of_week: getInt("pred-weekend", 2),
+    is_weekend: getInt("pred-weekend", 2) >= 5 ? 1 : 0,
   };
 
   const res = await apiPost("/api/prediction", payload);
