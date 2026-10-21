@@ -22,6 +22,7 @@ function onAirQualityCityChange() {
   const select = document.getElementById("aq-city-select");
   if (select && select.value) {
     AppState.selectedCity = select.value;
+    AppState.selectedStation = "all";
     loadAirQualityData(select.value);
   }
 }
@@ -46,22 +47,36 @@ function onAirQualityPollutantChange() {
 }
 
 async function loadAirQualityData(cityName) {
-  const data = await apiGet(`/api/air-quality?city=${encodeURIComponent(cityName)}`);
+  const requestedStation = AppState.selectedStation || "all";
+  const stationParam = requestedStation !== "all"
+    ? `&station=${encodeURIComponent(requestedStation)}`
+    : "";
+  const data = await apiGet(
+    `/api/air-quality?city=${encodeURIComponent(cityName)}${stationParam}`
+  );
   if (!data) return;
   currentAQData = data;
 
   // 1. Populate Stations dropdown
   const stnSelect = document.getElementById("aq-station-select");
   if (stnSelect && data.stations) {
-    const prevVal = stnSelect.value;
-    stnSelect.innerHTML = `<option value="all">All Stations (${data.station_count} Active Monitoring Stations)</option>`;
+    const selectedStationId = data.selected_station
+      ? data.selected_station.station_id
+      : "all";
+
+    stnSelect.innerHTML =
+      `<option value="all">City-wide aggregate (${data.station_count} stations in historical archive)</option>`;
+
     data.stations.forEach((s) => {
       const opt = document.createElement("option");
       opt.value = s.station_id;
-      opt.textContent = `${s.station_location} (${s.mean_pm25} µg/m³ avg)`;
-      if (s.station_id === prevVal) opt.selected = true;
+      opt.textContent =
+        `${s.station_location} (historical PM2.5 mean: ${s.mean_pm25} ug/m3)`;
       stnSelect.appendChild(opt);
     });
+
+    stnSelect.value = selectedStationId;
+    AppState.selectedStation = selectedStationId;
   }
 
   // 2. Render Main Gauge / Status Indicator
@@ -90,15 +105,47 @@ function renderAQMainIndicator(data) {
   const isLive = live && live.is_live;
 
   const displayData = isLive ? live : lat;
-  const displayColor = displayData.color || lat.color || "#10b981";
-  const displayCategory = displayData.category || lat.category || "Moderate";
-  const displayAQI = Math.round(displayData.aqi !== undefined && displayData.aqi !== null ? displayData.aqi : lat.aqi);
+  const historicalCompositeAvailable =
+    !isLive &&
+    lat.composite_aqi !== null &&
+    lat.composite_aqi !== undefined &&
+    Number.isFinite(Number(lat.composite_aqi));
+
+  const displayColor = isLive
+    ? (live.color || live.aqi_color || "#94a3b8")
+    : historicalCompositeAvailable
+      ? (lat.composite_color || lat.color || "#94a3b8")
+      : (lat.pm25_color || "#94a3b8");
+
+  const displayCategory = isLive
+    ? (live.category || "Unavailable")
+    : historicalCompositeAvailable
+      ? (lat.composite_category || lat.category || "Unavailable")
+      : (lat.pm25_category || lat.category || "Unavailable");
+
+  const displayAQIRaw = isLive
+    ? live.aqi
+    : historicalCompositeAvailable
+      ? lat.composite_aqi
+      : (lat.pm25_subindex !== null && lat.pm25_subindex !== undefined
+          ? lat.pm25_subindex
+          : lat.aqi);
+
+  const displayAQI =
+    displayAQIRaw !== null &&
+    displayAQIRaw !== undefined &&
+    Number.isFinite(Number(displayAQIRaw))
+      ? Math.round(Number(displayAQIRaw))
+      : "?";
+
   const health = getHealthGuidance(displayCategory);
   const avgs = data.pollutant_averages || {};
 
   const aqiTypeLabel = isLive
     ? (live.aqi_type || "PM2.5 Sub-Index (CPCB Breakpoint Formula)")
-    : "Historical CPCB Archive Record";
+    : historicalCompositeAvailable
+      ? "Historical Composite AQI Estimate (citywide rolling averages)"
+      : "Historical PM2.5 Sub-Index (composite AQI unavailable)";
 
   const badgeHtml = isLive
     ? `<span class="live-badge-pill"><span class="live-pulse-dot"></span> Live CPCB Telemetry</span>`
@@ -126,7 +173,7 @@ function renderAQMainIndicator(data) {
         <span style="font-size: 52px; font-weight: 800; color: ${displayColor}; line-height: 1;">
           ${displayAQI}
         </span>
-        <span style="font-size: 15px; color: var(--text-muted); font-weight: 500;">${isLive ? "Sub-Index" : "NAQI Score"}</span>
+        <span style="font-size: 15px; color: var(--text-muted); font-weight: 500;">${isLive ? "PM2.5 Sub-Index" : (historicalCompositeAvailable ? "Historical Composite AQI Estimate" : "PM2.5 Sub-Index ? composite unavailable")}</span>
       </div>
 
       <p style="font-size: 14px; color: var(--text-secondary); margin-bottom: 20px;">
@@ -200,7 +247,7 @@ function renderPollutantCards(data) {
 
   container.innerHTML = pollutantsConfig
     .map((p) => {
-      const displayVal = p.val !== null && p.val !== undefined ? p.val : (p.avg !== null ? p.avg : "—");
+      const displayVal = p.val !== null && p.val !== undefined ? p.val : String.fromCharCode(8212);
       const isNum = typeof displayVal === "number";
       const ratio = isNum ? Math.min(100, Math.round((displayVal / p.standard) * 100)) : 0;
 
@@ -517,9 +564,10 @@ function sendToPrediction() {
     // Set month and hour to current real time
     const now = new Date();
     const currentMonth = now.getMonth() + 1; // JS months are 0-indexed
-    setVal("pred-month", currentMonth);
-    setVal("pred-hour",  now.getHours());
-    setVal("pred-weekend", (now.getDay() === 0 || now.getDay() === 6) ? 1 : 0);
+    const airwiseForecastTargetTime = new Date(now.getTime() + 3600000);
+    setVal("pred-month", airwiseForecastTargetTime.getMonth() + 1);
+    setVal("pred-hour", airwiseForecastTargetTime.getHours());
+    setVal("pred-weekend", (airwiseForecastTargetTime.getDay() + 6) % 7);
 
     // Auto-fill Temperature, Humidity, and Wind Speed based on City & Season
     const climateLookup = {

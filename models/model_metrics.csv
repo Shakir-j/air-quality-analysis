@@ -1,2 +1,2 @@
 Model,Val_MAE,Val_RMSE,Val_R2,Test_MAE,Test_RMSE,Test_R2,Train_Time_s
-XGBoost Regressor,9.82,20.03,0.8871,9.43,20.17,0.9231,109.31
+XGBoost (timestamp-aligned candidate),9.8476,18.4421,0.9463,9.1604,18.4241,0.9295,10.93

@@ -1,0 +1,57 @@
+{
+  "model": "XGBoost (timestamp-aligned candidate)",
+  "target": "One-hour-ahead PM2.5 prediction",
+  "candidate_validation_metrics": {
+    "MAE": 9.8476,
+    "MSE": 340.1109,
+    "RMSE": 18.4421,
+    "R2": 0.9463
+  },
+  "candidate_test_metrics": {
+    "MAE": 9.1604,
+    "MSE": 339.4464,
+    "RMSE": 18.4241,
+    "R2": 0.9295
+  },
+  "persistence_baseline": {
+    "validation": {
+      "MAE": 10.7664,
+      "RMSE": 21.0613
+    },
+    "test": {
+      "MAE": 9.8178,
+      "RMSE": 20.8242
+    }
+  },
+  "validation_rmse_improvement_percent": 12.44,
+  "test_rmse_improvement_percent": 11.53,
+  "training_summary": {
+    "model": "XGBoost",
+    "status": "candidate_only_not_promoted",
+    "target": "PM2.5 at target timestamp t",
+    "feature_alignment": "Historical pollutant lags and meteorology use the exact preceding clock-hour where required.",
+    "split_policy": "Chronological 70/15/15 by unique timestamp",
+    "validation_start": "2019-06-11 16:00:00",
+    "test_start": "2021-05-06 08:00:00",
+    "available_training_rows": 1167513,
+    "training_rows_used": 800000,
+    "validation_rows": 1285756,
+    "test_rows": 1638400,
+    "max_training_rows": 800000,
+    "feature_count": 28,
+    "training_seconds": 10.93,
+    "validation_metrics": {
+      "MAE": 9.8476,
+      "MSE": 340.1109,
+      "RMSE": 18.4421,
+      "R2": 0.9463
+    },
+    "test_metrics": {
+      "MAE": 9.1604,
+      "MSE": 339.4464,
+      "RMSE": 18.4241,
+      "R2": 0.9295
+    },
+    "production_model_replaced": false
+  }
+}

@@ -70,3 +70,65 @@ def test_time_aware_chronological_split():
 
     # Verify partition sum equals total
     assert len(X_tr) + len(X_val) + len(X_te) == n
+def test_timestamp_aware_lags_respect_missing_hours():
+    timestamps = pd.to_datetime([
+        "2020-01-01 00:00:00",
+        "2020-01-01 01:00:00",
+        "2020-01-01 03:00:00",
+        "2020-01-01 04:00:00",
+    ])
+    df = pd.DataFrame({
+        "timestamp": timestamps,
+        TARGET_COL: [10.0, 20.0, 40.0, 80.0],
+    })
+
+    result = _add_lag_features(df)
+    row = result.loc[result["timestamp"] == timestamps[2]].iloc[0]
+
+    assert pd.isna(row["pm25_lag_1h"])
+    assert row["pm25_lag_2h"] == 20.0
+    assert row["pm25_lag_3h"] == 10.0
+
+
+def test_timestamp_aware_rolling_uses_clock_window():
+    timestamps = pd.to_datetime([
+        "2020-01-01 00:00:00",
+        "2020-01-01 01:00:00",
+        "2020-01-01 03:00:00",
+        "2020-01-01 04:00:00",
+    ])
+    df = pd.DataFrame({
+        "timestamp": timestamps,
+        TARGET_COL: [10.0, 20.0, 40.0, 80.0],
+    })
+
+    result = _add_rolling_features(df)
+
+    # At 04:00 the previous three-hour window contains 20 and 40.
+    assert result["pm25_roll_mean_3h"].iloc[-1] == pytest.approx(30.0)
+
+
+def test_copollutant_lag_requires_exact_previous_hour():
+    from src.features import CO_POLL_COLS, _add_copollutant_lags
+
+    if not CO_POLL_COLS:
+        pytest.skip("No co-pollutant columns are configured.")
+
+    column = CO_POLL_COLS[0]
+    short = column.split(" ")[0].lower()
+    timestamps = pd.to_datetime([
+        "2020-01-01 00:00:00",
+        "2020-01-01 01:00:00",
+        "2020-01-01 03:00:00",
+        "2020-01-01 04:00:00",
+    ])
+    df = pd.DataFrame({
+        "timestamp": timestamps,
+        TARGET_COL: [10.0, 20.0, 40.0, 80.0],
+        column: [1.0, 2.0, 3.0, 4.0],
+    })
+
+    result = _add_copollutant_lags(df)
+
+    assert pd.isna(result[f"{short}_lag_1h"].iloc[2])
+    assert result[f"{short}_lag_1h"].iloc[3] == 3.0

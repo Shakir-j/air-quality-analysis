@@ -46,20 +46,14 @@ POLLUTANTS_MAP = {
     "Ozone": "Ozone (ug/m3)",
 }
 
+from src.aqi import calculate_composite_aqi, calculate_pollutant_subindex
+
 def get_aqi_category(pm25: float) -> tuple[float, str, str]:
-    """Return AQI sub-index, category string, and hex color."""
-    if pm25 <= 30:
-        return round(pm25 * (50 / 30), 1), "Good", "#10b981"
-    elif pm25 <= 60:
-        return round(50 + (pm25 - 30) * (50 / 30), 1), "Satisfactory", "#84cc16"
-    elif pm25 <= 90:
-        return round(100 + (pm25 - 60) * (100 / 30), 1), "Moderate", "#f59e0b"
-    elif pm25 <= 120:
-        return round(200 + (pm25 - 90) * (100 / 30), 1), "Poor", "#f97316"
-    elif pm25 <= 250:
-        return round(300 + (pm25 - 120) * (100 / 130), 1), "Very Poor", "#ef4444"
-    else:
-        return min(500.0, round(400 + (pm25 - 250) * (100 / 250), 1)), "Severe", "#991b1b"
+    """Return the central PM2.5 sub-index and display metadata."""
+    result = calculate_pollutant_subindex("PM2.5", pm25)
+    if result is None:
+        return 0.0, "Insufficient data", "#94a3b8"
+    return result
 
 def compute_cache():
     print("Loading processed dataset...")
@@ -92,35 +86,231 @@ def compute_cache():
     print("Computing city & station summaries...")
     for city, c_df in df.groupby("city", observed=True):
         coords = CITY_COORDINATES.get(city, {"lat": 20.5937, "lon": 78.9629, "state": ""})
-        station_groups = c_df.groupby(["station_id", "station_location"], observed=True)
+        station_groups = c_df.groupby(
+            ["station_id", "station_location"], observed=True
+        )
         stations = []
+        station_data = {}
+
+        station_pollutant_columns = {
+            "PM2.5": "PM2.5 (ug/m3)",
+            "PM10": "PM10 (ug/m3)",
+            "NO2": "NO2 (ug/m3)",
+            "SO2": "SO2 (ug/m3)",
+            "CO": "CO (mg/m3)",
+            "O3": "Ozone (ug/m3)",
+        }
+
         for (sid, sloc), s_df in station_groups:
+            station_frame = s_df.copy()
+            station_frame["timestamp"] = (
+                pd.to_datetime(station_frame["timestamp"]).dt.floor("h")
+            )
+            station_frame["hour"] = station_frame["timestamp"].dt.hour
+
+            station_hourly = (
+                station_frame.groupby("timestamp", observed=True)[
+                    list(station_pollutant_columns.values())
+                ]
+                .mean()
+                .sort_index()
+            )
+
+            valid_pm25 = station_hourly["PM2.5 (ug/m3)"].dropna()
+            if valid_pm25.empty:
+                continue
+
+            station_latest_time = valid_pm25.index[-1]
+            station_latest_row = station_hourly.loc[station_latest_time]
+
+            def station_value(row, column, digits=1):
+                value = row[column]
+                if pd.isna(value):
+                    return None
+                return round(float(value), digits)
+
+            # Use real hourly values only; gaps remain missing.
+            station_aqi_index = pd.date_range(
+                end=station_latest_time, periods=24, freq="h"
+            )
+            station_aqi_window = station_hourly.reindex(station_aqi_index)
+
+            station_aqi_inputs = {
+                pollutant: [
+                    None if pd.isna(value) else float(value)
+                    for value in station_aqi_window[column].tolist()
+                ]
+                for pollutant, column in station_pollutant_columns.items()
+            }
+
+            station_composite = calculate_composite_aqi(station_aqi_inputs)
+
+            (
+                station_pm25_subindex,
+                station_pm25_category,
+                station_pm25_color,
+            ) = get_aqi_category(
+                float(station_latest_row["PM2.5 (ug/m3)"])
+            )
+
+            # Last 48 clock hours, not simply the last 48 available records.
+            trend_index = pd.date_range(
+                end=station_latest_time, periods=48, freq="h"
+            )
+            trend_frame = station_hourly.reindex(trend_index)
+            station_trend = []
+
+            for trend_time, row in trend_frame.iterrows():
+                station_trend.append({
+                    "time": str(trend_time),
+                    "pm25": station_value(row, "PM2.5 (ug/m3)"),
+                    "pm10": station_value(row, "PM10 (ug/m3)"),
+                    "no2": station_value(row, "NO2 (ug/m3)"),
+                    "so2": station_value(row, "SO2 (ug/m3)"),
+                    "co": station_value(row, "CO (mg/m3)", 2),
+                    "ozone": station_value(row, "Ozone (ug/m3)"),
+                })
+
+            station_averages = {}
+            for pollutant, column in station_pollutant_columns.items():
+                values = station_hourly[column].dropna()
+                station_averages[pollutant] = (
+                    round(float(values.mean()), 1) if not values.empty else None
+                )
+
+            hourly_pattern = (
+                station_frame.groupby("hour", observed=True)["PM2.5 (ug/m3)"]
+                .mean()
+                .reindex(range(24))
+            )
+            station_diurnal = [
+                None if pd.isna(value) else round(float(value), 1)
+                for value in hourly_pattern.tolist()
+            ]
+
+            station_id = str(sid)
+            location = str(sloc).strip()
+
+            station_latest = {
+                "timestamp": str(station_latest_time),
+                "pm25": station_value(station_latest_row, "PM2.5 (ug/m3)"),
+                "pm10": station_value(station_latest_row, "PM10 (ug/m3)"),
+                "no2": station_value(station_latest_row, "NO2 (ug/m3)"),
+                "so2": station_value(station_latest_row, "SO2 (ug/m3)"),
+                "co": station_value(station_latest_row, "CO (mg/m3)", 2),
+                "ozone": station_value(station_latest_row, "Ozone (ug/m3)"),
+                "aqi": station_composite["aqi"],
+                "category": station_composite["category"],
+                "color": station_composite["color"],
+                "composite_aqi": station_composite["aqi"],
+                "composite_category": station_composite["category"],
+                "composite_color": station_composite["color"],
+                "aqi_status": station_composite["status"],
+                "pm25_subindex": station_pm25_subindex,
+                "pm25_category": station_pm25_category,
+                "pm25_color": station_pm25_color,
+                "aqi_pollutant_averages": station_composite["pollutant_averages"],
+                "aqi_sub_indices": station_composite["sub_indices"],
+                "main_pollutant": (
+                    station_composite["dominant_pollutant"] or "Unavailable"
+                ),
+                "station_location": location,
+                "observation_type": "station_hourly_observation",
+                "station_count_at_timestamp": 1,
+                "aqi_basis": station_composite["basis"],
+                "pm25_aqi_basis": (
+                    "Station-specific hourly PM2.5 sub-index; not composite AQI"
+                ),
+            }
+
             stations.append({
-                "station_id": str(sid),
-                "station_location": str(sloc).strip(),
+                "station_id": station_id,
+                "station_location": location,
                 "readings": int(len(s_df)),
                 "date_min": str(s_df["timestamp"].min()),
                 "date_max": str(s_df["timestamp"].max()),
-                "mean_pm25": round(float(s_df["PM2.5 (ug/m3)"].mean()), 1),
+                "mean_pm25": round(
+                    float(s_df["PM2.5 (ug/m3)"].mean()), 1
+                ),
             })
 
-        # Latest recorded observation for the city
-        c_sorted = c_df.sort_values("timestamp")
-        latest_row = c_sorted.iloc[-1]
-        
-        # Calculate city overall stats
-        pm25_mean = float(c_df["PM2.5 (ug/m3)"].mean())
-        aqi_val, aqi_cat, aqi_col = get_aqi_category(pm25_mean)
+            station_data[station_id] = {
+                "latest_recorded": station_latest,
+                "pollutant_averages": station_averages,
+                "recent_trend": station_trend,
+                "diurnal_pattern": station_diurnal,
+            }
 
-        latest_pm25 = float(latest_row["PM2.5 (ug/m3)"]) if pd.notna(latest_row["PM2.5 (ug/m3)"]) else pm25_mean
+        # Build hourly city averages across stations. Each timestamp now
+        # represents one city-hour, not an arbitrary station row.
+        pollutant_cols = [
+            "PM2.5 (ug/m3)", "PM10 (ug/m3)", "NO2 (ug/m3)",
+            "SO2 (ug/m3)", "CO (mg/m3)", "Ozone (ug/m3)"
+        ]
+        city_hour = c_df.copy()
+        city_hour["timestamp"] = pd.to_datetime(city_hour["timestamp"]).dt.floor("h")
+        city_hourly = (
+            city_hour.groupby("timestamp", observed=True)[pollutant_cols]
+            .mean()
+            .sort_index()
+        )
+        station_counts = (
+            city_hour.groupby("timestamp", observed=True)["station_id"].nunique()
+        )
+
+        valid_pm25 = city_hourly["PM2.5 (ug/m3)"].dropna()
+        if valid_pm25.empty:
+            raise ValueError(f"No valid PM2.5 observations for {city}")
+
+        latest_time = valid_pm25.index[-1]
+        latest_row = city_hourly.loc[latest_time]
+        latest_station_count = int(station_counts.get(latest_time, 0))
+
+        # Equal-weight stations for long-term city summaries so stations
+        # with more records do not automatically dominate the city mean.
+        station_means = (
+            c_df.groupby("station_id", observed=True)[pollutant_cols].mean()
+        )
+        pm25_mean = float(station_means["PM2.5 (ug/m3)"].mean())
+        pm25_median = float(station_means["PM2.5 (ug/m3)"].median())
+        aqi_window_index = pd.date_range(
+            end=latest_time, periods=24, freq="h"
+        )
+        aqi_window_df = city_hourly.reindex(aqi_window_index)
+        aqi_column_map = {
+            "PM2.5": "PM2.5 (ug/m3)",
+            "PM10": "PM10 (ug/m3)",
+            "NO2": "NO2 (ug/m3)",
+            "SO2": "SO2 (ug/m3)",
+            "CO": "CO (mg/m3)",
+            "O3": "Ozone (ug/m3)",
+        }
+        aqi_hourly_values = {}
+        for pollutant, column in aqi_column_map.items():
+            if column not in aqi_window_df.columns:
+                aqi_hourly_values[pollutant] = [None] * 24
+            else:
+                aqi_hourly_values[pollutant] = [
+                    None if pd.isna(value) else float(value)
+                    for value in aqi_window_df[column].tolist()
+                ]
+
+        composite_aqi = calculate_composite_aqi(aqi_hourly_values)
+        aqi_val = composite_aqi["aqi"]
+        aqi_cat = composite_aqi["category"]
+        aqi_col = composite_aqi["color"]
+
+        latest_pm25 = float(latest_row["PM2.5 (ug/m3)"])
         lat_aqi, lat_cat, lat_col = get_aqi_category(latest_pm25)
 
-        # Recent 48 hours for trend line
-        recent_df = c_sorted.tail(48)[["timestamp", "PM2.5 (ug/m3)", "PM10 (ug/m3)", "NO2 (ug/m3)", "SO2 (ug/m3)", "CO (mg/m3)", "Ozone (ug/m3)"]]
+        # Use the latest 48 clock hours, inserting nulls for missing hours.
+        # Do not fill gaps with made-up measurements.
+        recent_index = pd.date_range(end=latest_time, periods=48, freq="h")
+        recent_df = city_hourly.reindex(recent_index)
         recent_trend = []
-        for _, r in recent_df.iterrows():
+        for ts, r in recent_df.iterrows():
             recent_trend.append({
-                "time": str(r["timestamp"]),
+                "time": str(ts),
                 "pm25": round(float(r["PM2.5 (ug/m3)"]), 1) if pd.notna(r["PM2.5 (ug/m3)"]) else None,
                 "pm10": round(float(r["PM10 (ug/m3)"]), 1) if pd.notna(r["PM10 (ug/m3)"]) else None,
                 "no2": round(float(r["NO2 (ug/m3)"]), 1) if pd.notna(r["NO2 (ug/m3)"]) else None,
@@ -128,7 +318,6 @@ def compute_cache():
                 "co": round(float(r["CO (mg/m3)"]), 2) if pd.notna(r["CO (mg/m3)"]) else None,
                 "ozone": round(float(r["Ozone (ug/m3)"]), 1) if pd.notna(r["Ozone (ug/m3)"]) else None,
             })
-
         cache["cities"][city] = {
             "city": city,
             "state": coords["state"],
@@ -136,35 +325,52 @@ def compute_cache():
             "lon": coords["lon"],
             "station_count": len(stations),
             "stations": stations,
+            "station_data": station_data,
             "total_records": int(len(c_df)),
             "date_start": str(c_df["timestamp"].min()),
             "date_end": str(c_df["timestamp"].max()),
             "overall_pm25_mean": round(pm25_mean, 1),
-            "overall_pm25_median": round(float(c_df["PM2.5 (ug/m3)"].median()), 1),
+            "overall_pm25_median": round(pm25_median, 1),
             "overall_aqi": aqi_val,
             "overall_category": aqi_cat,
             "overall_color": aqi_col,
+            "overall_aqi_status": composite_aqi["status"],
+            "overall_aqi_basis": composite_aqi["basis"],
+            "overall_aqi_timestamp": str(latest_time),
             "latest_recorded": {
-                "timestamp": str(latest_row["timestamp"]),
+                "timestamp": str(latest_time),
                 "pm25": round(latest_pm25, 1),
                 "pm10": round(float(latest_row["PM10 (ug/m3)"]), 1) if pd.notna(latest_row["PM10 (ug/m3)"]) else None,
                 "no2": round(float(latest_row["NO2 (ug/m3)"]), 1) if pd.notna(latest_row["NO2 (ug/m3)"]) else None,
                 "so2": round(float(latest_row["SO2 (ug/m3)"]), 1) if pd.notna(latest_row["SO2 (ug/m3)"]) else None,
                 "co": round(float(latest_row["CO (mg/m3)"]), 2) if pd.notna(latest_row["CO (mg/m3)"]) else None,
                 "ozone": round(float(latest_row["Ozone (ug/m3)"]), 1) if pd.notna(latest_row["Ozone (ug/m3)"]) else None,
-                "aqi": lat_aqi,
-                "category": lat_cat,
-                "color": lat_col,
-                "main_pollutant": "PM2.5",
-                "station_location": str(latest_row["station_location"]).strip(),
+                "aqi": composite_aqi["aqi"],
+                "category": composite_aqi["category"],
+                "color": composite_aqi["color"],
+                "composite_aqi": composite_aqi["aqi"],
+                "composite_category": composite_aqi["category"],
+                "composite_color": composite_aqi["color"],
+                "aqi_status": composite_aqi["status"],
+                "pm25_subindex": lat_aqi,
+                "pm25_category": lat_cat,
+                "pm25_color": lat_col,
+                "aqi_pollutant_averages": composite_aqi["pollutant_averages"],
+                "aqi_sub_indices": composite_aqi["sub_indices"],
+                "main_pollutant": composite_aqi["dominant_pollutant"] or "Unavailable",
+                "station_location": f"City-wide hourly mean ({latest_station_count} stations reporting)",
+                "observation_type": "city_hourly_mean",
+                "station_count_at_timestamp": latest_station_count,
+                "aqi_basis": composite_aqi["basis"],
+                "pm25_aqi_basis": "Hourly PM2.5-only sub-index; not a composite AQI",
             },
             "pollutant_averages": {
-                "PM2.5": round(float(c_df["PM2.5 (ug/m3)"].mean()), 1),
-                "PM10": round(float(c_df["PM10 (ug/m3)"].dropna().mean()), 1) if not c_df["PM10 (ug/m3)"].dropna().empty else None,
-                "NO2": round(float(c_df["NO2 (ug/m3)"].dropna().mean()), 1) if not c_df["NO2 (ug/m3)"].dropna().empty else None,
-                "SO2": round(float(c_df["SO2 (ug/m3)"].dropna().mean()), 1) if not c_df["SO2 (ug/m3)"].dropna().empty else None,
-                "CO": round(float(c_df["CO (mg/m3)"].dropna().mean()), 2) if not c_df["CO (mg/m3)"].dropna().empty else None,
-                "Ozone": round(float(c_df["Ozone (ug/m3)"].dropna().mean()), 1) if not c_df["Ozone (ug/m3)"].dropna().empty else None,
+                "PM2.5": round(float(station_means["PM2.5 (ug/m3)"].mean()), 1) if station_means["PM2.5 (ug/m3)"].notna().any() else None,
+                "PM10": round(float(station_means["PM10 (ug/m3)"].mean()), 1) if station_means["PM10 (ug/m3)"].notna().any() else None,
+                "NO2": round(float(station_means["NO2 (ug/m3)"].mean()), 1) if station_means["NO2 (ug/m3)"].notna().any() else None,
+                "SO2": round(float(station_means["SO2 (ug/m3)"].mean()), 1) if station_means["SO2 (ug/m3)"].notna().any() else None,
+                "CO": round(float(station_means["CO (mg/m3)"].mean()), 2) if station_means["CO (mg/m3)"].notna().any() else None,
+                "Ozone": round(float(station_means["Ozone (ug/m3)"].mean()), 1) if station_means["Ozone (ug/m3)"].notna().any() else None,
             },
             "recent_trend": recent_trend,
         }

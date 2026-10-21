@@ -9,9 +9,9 @@
 
 [![Plotly](https://img.shields.io/badge/Plotly-7.0%2B-3F4F75?logo=plotly&logoColor=white)](https://plotly.com/)
 
-[![Tests](https://img.shields.io/badge/Tests-17%20Passed-brightgreen?logo=pytest&logoColor=white)](tests)
+[![Tests](https://img.shields.io/badge/Tests-38%20Passed-brightgreen?logo=pytest&logoColor=white)](tests)
 
-AIRWISE is a local environmental intelligence and time-series forecasting application for Indian ambient air quality. It analyzes 13 years (2010–2023) of continuous monitoring data from the Central Pollution Control Board (CPCB) across 10 major metropolitan centers, visualizes spatio-temporal trends and diurnal cycles, and provides 1-hour-ahead PM2.5 forecasts using an XGBoost regression model with derived CPCB National Air Quality Index (NAQI) sub-indices and health guidance.
+AIRWISE is a local environmental intelligence and time-series forecasting application for Indian ambient air quality. It analyzes historical CPCB monitoring observations from 10 Indian cities and 130 stations, covering 2010-02-17 through 2023-03-31. It visualizes spatial and temporal patterns and provides one-hour-ahead PM2.5 forecasts using XGBoost. The bundled archive is historical, not a live feed, and contains missing station-hours.
 
 ---
 
@@ -187,36 +187,36 @@ flowchart TD
 - **Inputs:** Environmental observations, historical lags, and temporal indicators available at or prior to hour t-1.
 
 ### Feature Engineering and Leakage Prevention
-To ensure that validation results accurately reflect unseen temporal data, feature construction adheres to strict time-aware rules:
+Feature construction is station-aware and timestamp-aware. The target is PM2.5 at timestamp t; the forecast inputs must come from the previous observation hour where applicable.
 
-- **Pollutant Lags:** Past PM2.5 concentrations shifted per station using `DataFrame.shift()`: t-1h, t-2h, t-3h, t-6h, t-12h, and t-24h.
+- **Pollutant Lags:** Exact timestamp lookups for PM2.5 at t-1h, t-2h, t-3h, t-6h, t-12h, and t-24h. Missing clock-hours are not treated as adjacent observations.
 
-- **Rolling Statistics:** 3-hour, 6-hour, and 24-hour moving averages and standard deviations. Rolling windows specify `closed='left'` to ensure the current observation is excluded from calculation.
+- **Rolling Statistics:** Time-based 3-hour, 6-hour, and 24-hour rolling means and standard deviations that exclude the target observation.
 
-- **Co-Pollutants:** 1-hour lagged values of NO2, CO, SO2, Ozone, and NOx.
+- **Co-Pollutants:** NO2, CO, SO2, Ozone, and NOx use their exact preceding-hour values where available.
 
-- **Meteorological Indicators:** Temperature, relative humidity, wind speed, solar radiation, and barometric pressure at prediction time.
+- **Meteorological Indicators:** Temperature, relative humidity, wind speed, solar radiation, and barometric pressure are aligned to the preceding clock hour.
 
-- **Calendar & Time Indicators:** Hour of day, month, day of week, season index, and weekend flag.
+- **Calendar & Time Indicators:** Hour, month, day of week, season index, and weekend flag for the forecast target.
 
-- **Chronological Data Split:** Observations are partitioned by time to prevent future-to-past data leakage:
+- **Chronological Data Split:** The corrected model run partitions rows by unique timestamps:
 
-  - **Training Set:** Chronological start through `2021-12-31` (~70% of dataset).
+  - **Training:** Before 2019-06-11 16:00:00; 1,167,513 rows available, of which 800,000 were sampled for fitting.
 
-  - **Validation Set:** `2022-01-01` through `2022-06-30` (~15% of dataset).
+  - **Validation:** 2019-06-11 16:00:00 through before 2021-05-06 08:00:00 (1,285,756 rows).
 
-  - **Test Set:** `2022-07-01` through `2023-12-31` (~15% of dataset).
+  - **Test:** From 2021-05-06 08:00:00 to the final archive timestamp, 2023-03-31 23:00:00 (1,638,400 rows).
 
 ### Model Evaluation and Generalization Metrics
-Five regression architectures were benchmarked across the chronological splits using `TimeSeriesSplit` cross-validation: Linear Regression (StandardScaler baseline), Decision Tree, Random Forest, Gradient Boosting, and XGBoost Regressor.
+The promoted model is an XGBoost regressor trained with the timestamp-aligned feature pipeline. The corrected training run evaluated this configuration against a persistence baseline using chronological validation and test periods.
 
-The final model, **XGBoost Regressor**, was selected based on validation performance and saved to [models/final_model.pkl](models/final_model.pkl). The recorded evaluation metrics from [models/model_metrics.csv](models/model_metrics.csv) are:
+The promoted model, **XGBoost (timestamp-aligned)**, is saved to [models/final_model.pkl](models/final_model.pkl). Its validation and held-out test metrics are listed below:
 
 | Model | Val MAE (µg/m³) | Val RMSE (µg/m³) | Val R² | Test MAE (µg/m³) | Test RMSE (µg/m³) | Test R² | Training Time (s) |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
-| **XGBoost Regressor** | **9.82** | **20.03** | **0.8871** | **9.43** | **20.17** | **0.9231** | **109.31** |
+| **XGBoost (timestamp-aligned)** | **9.8476** | **18.4421** | **0.9463** | **9.1604** | **18.4241** | **0.9295** | — |
 
-> **Evaluation Scope:** The test set represents unseen future observations (July 2022 through December 2023). Achieving an R² of **0.9231** and an MAE of **9.43 µg/m³** confirms that the model generalizes well across seasonal transitions. These metrics reflect historical validation on held-out station data, not a guarantee of real-time field accuracy.
+> **Evaluation Scope:** The held-out test period begins on 2021-05-06 and ends at the final dataset timestamp, 2023-03-31 23:00. The model achieved R²=0.9295, MAE=9.1604 µg/m³, and RMSE=18.4241 µg/m³. It reduced test RMSE by 11.53% compared with the persistence baseline on the same rows. These are historical offline metrics, not guarantees of live-field accuracy.
 
 ---
 
@@ -265,13 +265,14 @@ AIRWISE is designed to run immediately after cloning without requiring large dat
 
 | Path | Tracked in Git? | File Size | Description |
 | :--- | :---: | :---: | :--- |
-| [data/cache/air_quality_cache.json](data/cache/air_quality_cache.json) | **Yes** | 381 KB | Precomputed analytics powering all dashboard tabs. |
-| [models/final_model.pkl](models/final_model.pkl) | **Yes** | 2.61 MB | Trained XGBoost Regressor for real-time predictions. |
-| [models/preprocessor.pkl](models/preprocessor.pkl) | **Yes** | 961 B | Feature transformers and median imputers. |
-| [models/model_metrics.csv](models/model_metrics.csv) | **Yes** | 133 B | Model evaluation benchmark results. |
+| [data/cache/air_quality_cache.json](data/cache/air_quality_cache.json) | **Yes** | 2.35 MB | Precomputed analytics from historical observations; not current live readings. |
+| [models/final_model.pkl](models/final_model.pkl) | **Yes** | 2.38 MB | Promoted XGBoost model for one-hour-ahead PM2.5 prediction. |
+| [models/preprocessor.pkl](models/preprocessor.pkl) | **Yes** | 2.8 KB | Feature names and training-set medians used during inference. |
+| [models/model_metrics.csv](models/model_metrics.csv) | **Yes** | 160 B | Promoted model validation and test metrics. |
+| [models/final_model_evaluation.json](models/final_model_evaluation.json) | **Yes** | 1.56 KB | Model evaluation and persistence-baseline comparison. |
 | [frontend/static/vendor/](frontend/static/vendor) | **Yes** | ~5.0 MB | Bundled Leaflet and Plotly.js vendor libraries. |
 | `data/raw/*.csv` | **No** (GitIgnored) | ~2 GB | 454 raw CPCB station archives (only needed for retraining). |
-| `data/processed/*.parquet` | **No** (GitIgnored) | 301 MB | Processed dataset (only needed for retraining). |
+| `data/processed/*.parquet` | **No** (GitIgnored) | Approximately 114 MB locally | Needed for retraining and candidate evaluation, not normal dashboard inference. |
 | `reports/figures/*.html` | **No** (GitIgnored) | — | Generated standalone interactive figures. |
 
 ### Startup Logic on a Fresh Clone
@@ -551,15 +552,15 @@ The request body accepts the following fields validated by Pydantic:
 ---
 
 ## Testing and Verification
-AIRWISE includes an automated test suite executed with `pytest` covering API routes, feature engineering, CPCB sub-index logic, and sensor boundary constraints:
+The latest local verification passed all 38 automated tests. Browser verification passed all five views and reported zero severe JavaScript console errors. The suite covers API routes, time-aware feature engineering, prediction behavior, and AQI sub-index logic:
 
-- [tests/test_api.py](tests/test_api.py) (7 tests): Tests HTTP status codes, output schemas, 10-city counts, and payload responses across all API endpoints.
+- [tests/test_api.py](tests/test_api.py): Tests HTTP status codes, output schemas, 10-city counts, and payload responses across all API endpoints.
 
-- [tests/test_features.py](tests/test_features.py) (3 tests): Verifies that lag features match `shift(n)`, confirms rolling statistics exclude the current observation (`closed='left'`), and verifies zero overlap across chronological train, validation, and test splits.
+- [tests/test_features.py](tests/test_features.py): Verifies exact-timestamp lag alignment across missing hours, rolling-window exclusion of the target observation, and exact preceding-hour co-pollutant values.
 
-- [tests/test_predictor.py](tests/test_predictor.py) (3 tests): Tests scalar NAQI conversions across all six CPCB category ranges, negative concentration clamping, and category metadata completeness.
+- [tests/test_predictor.py](tests/test_predictor.py): Tests scalar NAQI conversions across all six CPCB category ranges, negative concentration clamping, and category metadata completeness.
 
-- [tests/test_preprocessor.py](tests/test_preprocessor.py) (4 tests): Tests CPCB NAQI mathematical breakpoints, vectorized pandas series conversions, non-negative variable definitions, and sensor outlier caps (PM2.5 <= 500 µg/m³, RH <= 100%, WS <= 50 m/s).
+- [tests/test_preprocessor.py](tests/test_preprocessor.py): Tests CPCB NAQI mathematical breakpoints, vectorized pandas series conversions, non-negative variable definitions, and sensor outlier caps (PM2.5 <= 500 µg/m³, RH <= 100%, WS <= 50 m/s).
 
 ### Running Tests
 Ensure your virtual environment is active, then run:
@@ -568,33 +569,7 @@ Ensure your virtual environment is active, then run:
 pytest tests/ -v
 ```
 
-**Verified test run output:**
-
-```text
-============================= test session starts =============================
-platform win32 -- Python 3.13.11, pytest-9.1.1, pluggy-1.6.0
-rootdir: .../air-quality-analysis
-configfile: pytest.ini
-collected 17 items
-tests/test_api.py::test_root_index PASSED                                [  5%]
-tests/test_api.py::test_locations_endpoint PASSED                        [ 11%]
-tests/test_api.py::test_air_quality_endpoint PASSED                      [ 17%]
-tests/test_api.py::test_trends_endpoint PASSED                           [ 23%]
-tests/test_api.py::test_comparison_endpoint PASSED                       [ 29%]
-tests/test_api.py::test_insights_endpoint PASSED                         [ 35%]
-tests/test_api.py::test_prediction_endpoint PASSED                       [ 41%]
-tests/test_features.py::test_lag_features_shift PASSED                   [ 47%]
-tests/test_features.py::test_rolling_features_leakage_free PASSED        [ 52%]
-tests/test_features.py::test_time_aware_chronological_split PASSED       [ 58%]
-tests/test_predictor.py::test_aqi_scalar_categories PASSED               [ 64%]
-tests/test_predictor.py::test_negative_clamping PASSED                   [ 70%]
-tests/test_predictor.py::test_aqi_category_metadata_completeness PASSED  [ 76%]
-tests/test_preprocessor.py::test_cpcb_aqi_breakpoints PASSED             [ 82%]
-tests/test_preprocessor.py::test_aqi_vectorized_series PASSED            [ 88%]
-tests/test_preprocessor.py::test_non_negative_pollutant_definition PASSED [ 94%]
-tests/test_preprocessor.py::test_outlier_caps_scientific_bounds PASSED   [100%]
-======================= 17 passed, 1 warning in 13.80s ========================
-```
+**Latest local verification:** 38 automated tests passed. Browser verification passed all five views with zero severe JavaScript console errors.
 
 ---
 

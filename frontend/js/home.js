@@ -44,9 +44,39 @@ async function loadFeaturedCityAQ(cityName) {
   const isLive = live && live.is_live;
 
   const displayData = isLive ? live : lat;
-  const displayColor = displayData.color || lat.color || "#10b981";
-  const displayCategory = displayData.category || lat.category || "Moderate";
-  const displayAQI = Math.round(displayData.aqi !== undefined && displayData.aqi !== null ? displayData.aqi : lat.aqi);
+  const historicalCompositeAvailable =
+    !isLive &&
+    lat.composite_aqi !== null &&
+    lat.composite_aqi !== undefined &&
+    Number.isFinite(Number(lat.composite_aqi));
+
+  const displayColor = isLive
+    ? (live.color || live.aqi_color || "#94a3b8")
+    : historicalCompositeAvailable
+      ? (lat.composite_color || lat.color || "#94a3b8")
+      : (lat.pm25_color || "#94a3b8");
+
+  const displayCategory = isLive
+    ? (live.category || "Unavailable")
+    : historicalCompositeAvailable
+      ? (lat.composite_category || lat.category || "Unavailable")
+      : (lat.pm25_category || lat.category || "Unavailable");
+
+  const displayAQIRaw = isLive
+    ? live.aqi
+    : historicalCompositeAvailable
+      ? lat.composite_aqi
+      : (lat.pm25_subindex !== null && lat.pm25_subindex !== undefined
+          ? lat.pm25_subindex
+          : lat.aqi);
+
+  const displayAQI =
+    displayAQIRaw !== null &&
+    displayAQIRaw !== undefined &&
+    Number.isFinite(Number(displayAQIRaw))
+      ? Math.round(Number(displayAQIRaw))
+      : "?";
+
   const health = getHealthGuidance(displayCategory);
 
   if (timeBadge) {
@@ -90,10 +120,10 @@ async function loadFeaturedCityAQ(cityName) {
         <div class="aqi-category-title" style="color: ${displayColor};">${displayCategory}</div>
         <div class="aqi-subindex-display">
           <span class="aqi-num-val" style="color: ${displayColor};">${displayAQI}</span>
-          <span class="aqi-num-unit">${isLive ? "CPCB Sub-Index" : "NAQI Score"}</span>
+          <span class="aqi-num-unit">${isLive ? (live.aqi_type || "PM2.5 Sub-Index") : (historicalCompositeAvailable ? "Historical Composite AQI Estimate" : "PM2.5 Sub-Index ? composite unavailable")}</span>
         </div>
         <div class="aqi-primary-pollutant">
-          <strong>Dominant Pollutant:</strong> Fine Particulates (PM2.5)
+          <strong>Dominant Pollutant:</strong> ${isLive ? (live.main_pollutant || "PM2.5") : (historicalCompositeAvailable ? (lat.dominant_pollutant || "Unavailable") : "PM2.5 (sub-index only)")}
         </div>
       </div>
 

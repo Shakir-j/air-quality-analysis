@@ -67,34 +67,141 @@ TEMPORAL_COLS = [
 
 
 def _add_lag_features(group: pd.DataFrame) -> pd.DataFrame:
-    """Add PM2.5 lag features for a single station group (sorted by time)."""
-    for lag in LAG_HOURS:
-        group[f"pm25_lag_{lag}h"] = group[TARGET_COL].shift(lag)
-    return group
+    """Add PM2.5 lags from exact historical clock-hour timestamps."""
+    group = group.copy()
 
+    if "timestamp" not in group.columns:
+        # Keep backwards-compatible behavior for legacy helper callers.
+        for lag in LAG_HOURS:
+            group[f"pm25_lag_{lag}h"] = group[TARGET_COL].shift(lag)
+        return group
+
+    timestamps = pd.DatetimeIndex(pd.to_datetime(group["timestamp"]))
+    values = pd.to_numeric(group[TARGET_COL], errors="coerce")
+
+    source = pd.Series(values.to_numpy(), index=timestamps)
+    source = source[
+        ~source.index.duplicated(keep="last")
+    ].sort_index()
+
+    for lag in LAG_HOURS:
+        requested_times = timestamps - pd.Timedelta(hours=lag)
+        group[f"pm25_lag_{lag}h"] = (
+            source.reindex(requested_times).to_numpy()
+        )
+
+    return group
 
 def _add_rolling_features(group: pd.DataFrame) -> pd.DataFrame:
-    """Add rolling mean/std of PM2.5 for a single station group."""
+    """Add PM2.5 rolling statistics using historical clock-time windows."""
+    group = group.copy()
+
+    if "timestamp" not in group.columns:
+        for win in ROLLING_WINS:
+            shifted = group[TARGET_COL].shift(1)
+            group[f"pm25_roll_mean_{win}h"] = (
+                shifted.rolling(window=win, min_periods=1).mean()
+            )
+            group[f"pm25_roll_std_{win}h"] = (
+                shifted.rolling(window=win, min_periods=1).std()
+            )
+        return group
+
+    timestamps = pd.DatetimeIndex(pd.to_datetime(group["timestamp"]))
+    values = pd.to_numeric(group[TARGET_COL], errors="coerce")
+
+    source = pd.Series(values.to_numpy(), index=timestamps)
+    source = source[
+        ~source.index.duplicated(keep="last")
+    ].sort_index()
+
     for win in ROLLING_WINS:
-        # shift(1) before rolling to exclude current row (leakage prevention)
-        shifted = group[TARGET_COL].shift(1)
+        # Window is [timestamp - win hours, timestamp), excluding the
+        # current observation. A gap is not treated as an observed hour.
+        rolling = source.rolling(
+            window=f"{win}h",
+            min_periods=1,
+            closed="left",
+        )
+
         group[f"pm25_roll_mean_{win}h"] = (
-            shifted.rolling(window=win, min_periods=1).mean()
+            rolling.mean().reindex(timestamps).to_numpy()
         )
         group[f"pm25_roll_std_{win}h"] = (
-            shifted.rolling(window=win, min_periods=1).std()
+            rolling.std().reindex(timestamps).to_numpy()
         )
-    return group
 
+    return group
 
 def _add_copollutant_lags(group: pd.DataFrame) -> pd.DataFrame:
-    """Add 1-hour lagged co-pollutant values (leakage-safe)."""
+    """Add co-pollutant values from exactly one clock-hour earlier."""
+    group = group.copy()
+
+    timestamps = None
+    if "timestamp" in group.columns:
+        timestamps = pd.DatetimeIndex(pd.to_datetime(group["timestamp"]))
+
     for col in CO_POLL_COLS:
-        if col in group.columns:
-            short = col.split(" ")[0].lower()
-            group[f"{short}_lag_1h"] = group[col].shift(1)
+        if col not in group.columns:
+            continue
+
+        short = col.split(" ")[0].lower()
+        feature_name = f"{short}_lag_1h"
+
+        if timestamps is None:
+            group[feature_name] = group[col].shift(1)
+            continue
+
+        values = pd.to_numeric(group[col], errors="coerce")
+        source = pd.Series(values.to_numpy(), index=timestamps)
+        source = source[
+            ~source.index.duplicated(keep="last")
+        ].sort_index()
+
+        requested_times = timestamps - pd.Timedelta(hours=1)
+        group[feature_name] = source.reindex(requested_times).to_numpy()
+
     return group
 
+
+
+def _add_meteorological_lags(group: pd.DataFrame) -> pd.DataFrame:
+    """Use the exact preceding clock-hour weather observation for each target row.
+
+    Missing hours remain missing instead of silently using a neighbouring row.
+    This aligns training weather inputs with the current weather supplied for
+    a one-hour-ahead prediction.
+    """
+    if "timestamp" not in group.columns:
+        raise ValueError(
+            "Meteorological lagging requires a timestamp column."
+        )
+
+    times = pd.DatetimeIndex(
+        pd.to_datetime(group["timestamp"], errors="coerce")
+    )
+
+    if times.hasnans:
+        raise ValueError(
+            "Cannot align meteorological features: timestamps contain NaT."
+        )
+
+    if times.has_duplicates:
+        raise ValueError(
+            "Cannot align meteorological features: duplicate timestamps "
+            "exist within a station group."
+        )
+
+    previous_hours = times - pd.Timedelta(hours=1)
+
+    for col in MET_FEATURE_COLS:
+        if col not in group.columns:
+            continue
+
+        source = pd.Series(group[col].to_numpy(), index=times)
+        group[col] = source.reindex(previous_hours).to_numpy()
+
+    return group
 
 def build_features(
     df: pd.DataFrame,
@@ -118,15 +225,21 @@ def build_features(
         print(f"Building features from {len(df):,} rows...")
 
     # Sort within each station by time — critical for lag correctness
-    df = df.sort_values(["station_id", "timestamp"]).reset_index(drop=True)
+    sort_columns = [c for c in ("city", "station_id", "timestamp") if c in df.columns]
+    df = df.sort_values(sort_columns).reset_index(drop=True)
 
     # Per-station operations
     groups = []
-    for sid, group in df.groupby("station_id", observed=True, sort=False):
+    group_keys = ["station_id"]
+    if "city" in df.columns:
+        group_keys = ["city", "station_id"]
+    groups = []
+    for _, group in df.groupby(group_keys, observed=True, sort=False):
         group = group.copy()
         group = _add_lag_features(group)
         group = _add_rolling_features(group)
         group = _add_copollutant_lags(group)
+        group = _add_meteorological_lags(group)
         groups.append(group)
 
     df_feat = pd.concat(groups, ignore_index=True)
