@@ -120,7 +120,7 @@ async function loadFeaturedCityAQ(cityName) {
         <div class="aqi-category-title" style="color: ${displayColor};">${displayCategory}</div>
         <div class="aqi-subindex-display">
           <span class="aqi-num-val" style="color: ${displayColor};">${displayAQI}</span>
-          <span class="aqi-num-unit">${isLive ? (live.aqi_type || "PM2.5 Sub-Index") : (historicalCompositeAvailable ? "Historical Composite AQI Estimate" : "PM2.5 Sub-Index ? composite unavailable")}</span>
+          <span class="aqi-num-unit">${isLive ? (live.aqi_type || "PM2.5 Sub-Index") : (historicalCompositeAvailable ? "Historical Composite AQI Estimate" : "PM2.5 sub-index; composite unavailable")}</span>
         </div>
         <div class="aqi-primary-pollutant">
           <strong>Dominant Pollutant:</strong> ${isLive ? (live.main_pollutant || "PM2.5") : (historicalCompositeAvailable ? (lat.dominant_pollutant || lat.main_pollutant || "Unavailable") : "PM2.5 (sub-index only)")}
@@ -236,7 +236,7 @@ function displayMapCityDetail(cityObj) {
 
   panel.innerHTML = `
     <div class="panel-city-name">${cityObj.city}</div>
-    <div class="panel-state-name">${cityObj.state} ? ${cityObj.station_count} stations in historical archive</div>
+    <div class="panel-state-name">${cityObj.state} | ${cityObj.station_count} stations in historical archive</div>
     <div class="panel-aqi-pill">
             Long-term archive mean PM2.5: ${cityObj.overall_pm25_mean ?? "Unavailable"} ug/m3
     </div>
@@ -384,7 +384,7 @@ async function loadHomeInsightCards() {
       <span class="insight-tag">Seasonal Meteorology</span>
       <h3 class="insight-card-title">${ins.seasonal.ratio}x Winter-to-Monsoon PM2.5 Ratio</h3>
       <p class="insight-card-body">
-        Archive mean PM2.5 is <strong>${ins.seasonal.monsoon_pm25} ?g/m?</strong> in monsoon and <strong>${ins.seasonal.winter_pm25} ?g/m?</strong> in winter. This comparison describes a seasonal difference; it does not establish its cause.
+        Archive mean PM2.5 is <strong>${ins.seasonal.monsoon_pm25} ug/m3</strong> in monsoon and <strong>${ins.seasonal.winter_pm25} ug/m3</strong> in winter. This comparison describes a seasonal difference; it does not establish its cause.
       </p>
     </div>
 
@@ -392,7 +392,7 @@ async function loadHomeInsightCards() {
       <span class="insight-tag">Diurnal Rhythms</span>
       <h3 class="insight-card-title">Observed PM2.5 Peak: ${ins.diurnal.peak_hour}:00</h3>
       <p class="insight-card-body">
-        The aggregated hourly profile peaks at <strong>${ins.diurnal.peak_pm25} ?g/m?</strong> at this hour. This identifies a time-of-day pattern, not a source or cause.
+        The aggregated hourly profile peaks at <strong>${ins.diurnal.peak_pm25} ug/m3</strong> at this hour. This identifies a time-of-day pattern, not a source or cause.
       </p>
     </div>
 
