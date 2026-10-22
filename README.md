@@ -1,607 +1,475 @@
-# AIRWISE: Air Quality Analysis and Prediction
-[![Python Version](https://img.shields.io/badge/Python-3.13%20Tested-blue?logo=python&logoColor=white)](https://www.python.org/)
+# AIRWISE — Air Quality Analysis and Prediction
 
-[![FastAPI](https://img.shields.io/badge/FastAPI-0.115%2B-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
-
-[![XGBoost](https://img.shields.io/badge/XGBoost-3.4%2B-1182C3?logo=xgboost&logoColor=white)](https://xgboost.readthedocs.io/)
-
-[![Scikit-Learn](https://img.shields.io/badge/scikit--learn-1.7%2B-F7931E?logo=scikit-learn&logoColor=white)](https://scikit-learn.org/)
-
-[![Plotly](https://img.shields.io/badge/Plotly-7.0%2B-3F4F75?logo=plotly&logoColor=white)](https://plotly.com/)
-
+[![Python](https://img.shields.io/badge/Python-3.13-blue?logo=python&logoColor=white)](https://www.python.org/)
+[![FastAPI](https://img.shields.io/badge/Backend-FastAPI-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
+[![XGBoost](https://img.shields.io/badge/ML-XGBoost-1182C3)](https://xgboost.readthedocs.io/)
 [![Tests](https://img.shields.io/badge/Tests-39%20Passed-brightgreen?logo=pytest&logoColor=white)](tests)
 
-AIRWISE is a local environmental intelligence and time-series forecasting application for Indian ambient air quality. It analyzes historical CPCB monitoring observations from 10 Indian cities and 130 stations, covering 2010-02-17 through 2023-03-31. It visualizes spatial and temporal patterns and provides one-hour-ahead PM2.5 forecasts using XGBoost. The bundled archive is historical, not a live feed, and contains missing station-hours.
+**AIRWISE** is a local-first web application for exploring historical air-quality observations across Indian cities and generating one-hour-ahead PM2.5 forecasts. It combines interactive historical analysis, city comparisons, environmental insights, maps and a machine-learning prediction interface.
+
+The application uses a **Python FastAPI backend**, a lightweight **HTML/CSS/JavaScript frontend**, a precomputed historical analytics cache, and a saved **XGBoost regression model**.
+
+> **Data note:** The bundled historical archive ends on **31 March 2023 at 23:00**. Historical dashboard values are not live readings. Predictions are model estimates, not guaranteed future conditions. A predicted PM2.5 AQI sub-index is not a complete multi-pollutant AQI forecast.
 
 ---
 
-## Table of Contents
-- [Overview and Problem Statement](#overview-and-problem-statement)
+## Contents
 
-- [Key Features](#key-features)
-
-- [System Architecture and Data Flow](#system-architecture-and-data-flow)
-
-- [Machine Learning Methodology](#machine-learning-methodology)
-
-  - [Forecasting Objective and Horizon](#forecasting-objective-and-horizon)
-
-  - [Feature Engineering and Leakage Prevention](#feature-engineering-and-leakage-prevention)
-
-  - [Model Evaluation and Generalization Metrics](#model-evaluation-and-generalization-metrics)
-
-- [PM2.5 Prediction and NAQI Sub-Index Calculation](#pm25-prediction-and-naqi-sub-index-calculation)
-
-- [Portability and Dataset Independence](#portability-and-dataset-independence)
-
-  - [Tracked Runtime Files vs Excluded Datasets](#tracked-runtime-files-vs-excluded-datasets)
-
-  - [Startup Logic on a Fresh Clone](#startup-logic-on-a-fresh-clone)
-
-  - [Offline Operation and Limitations](#offline-operation-and-limitations)
-
-- [Repository Structure](#repository-structure)
-
-- [Installation and Setup](#installation-and-setup)
-
-  - [Prerequisites](#prerequisites)
-
-  - [Windows Setup (PowerShell)](#windows-setup-powershell)
-
-  - [macOS and Linux Setup](#macos-and-linux-setup)
-
-- [Dashboard Walkthrough](#dashboard-walkthrough)
-
+- [Project Overview](#project-overview)
+- [Features](#features)
+- [Data and Coverage](#data-and-coverage)
+- [Technology Stack](#technology-stack)
+- [System Architecture](#system-architecture)
+- [Getting Started](#getting-started)
+- [Using AIRWISE](#using-airwise)
+- [Machine-Learning Model](#machine-learning-model)
+- [Model Evaluation](#model-evaluation)
+- [AQI Methodology](#aqi-methodology)
 - [API Reference](#api-reference)
-
-  - [Endpoints Summary](#endpoints-summary)
-
-  - [Prediction Endpoint (Illustrative Example)](#prediction-endpoint-illustrative-example)
-
-- [Testing and Verification](#testing-and-verification)
-
+- [Project Structure](#project-structure)
+- [Testing](#testing)
+- [Regenerating the Analytics Cache](#regenerating-the-analytics-cache)
 - [Limitations](#limitations)
-
-- [Roadmap](#roadmap)
-
-- [License and Attribution](#license-and-attribution)
+- [SDG Alignment](#sdg-alignment)
 
 ---
 
-## Overview and Problem Statement
-Fine particulate matter (PM2.5) is a primary contributor to severe air pollution episodes across Indian urban areas. In winter months, meteorological factors such as boundary-layer thermal inversion, combined with vehicular and regional emissions, regularly cause particulate concentrations to spike across northern and eastern corridors.
+## Project Overview
 
-Continuous Ambient Air Quality Monitoring Station (CAAQMS) records published by the CPCB provide rich historical data, but working with them presents several practical engineering problems:
+Air pollution changes with traffic, industrial activity, weather and seasonal conditions. AIRWISE makes historical measurements easier to explore and provides a machine-learning estimate of PM2.5 one hour ahead.
 
-- **Data volume and fragmentation:** Hundreds of station CSV files with minor header variations and missing metadata.
+The project aims to:
 
-- **Sensor noise and gaps:** Missing data periods, calibration offsets, impossible negative values, and extreme outliers.
+1. Analyse a large historical air-quality archive.
+2. Visualise pollution patterns over time and across locations.
+3. Compare pollutant concentrations and historical conditions among cities.
+4. Present data-derived environmental insights.
+5. Estimate the next-hour PM2.5 concentration with a trained regression model.
+6. Explain the prediction with a derived PM2.5 AQI sub-index and general health guidance.
 
-- **Temporal data leakage:** Shuffling time-series observations across training and testing sets leads to artificially inflated validation metrics that fail in real-world forecasting.
+## Features
 
-- **Query latency:** Scanning multi-million-row time-series datasets during web requests causes unacceptable delays.
+### Home
+Provides an overview of the application and its historical air-quality analysis capabilities.
 
-AIRWISE addresses these challenges by:
+### Air Quality
+- Explore data by city and station where station-level data is available.
+- Distinguish historical averages from the latest available archived observation.
+- View monthly and yearly trends for PM2.5, PM10, NO2, SO2, CO and ozone where measurements are available.
+- See units, observation counts and date coverage in chart details.
+- Identify partial years, including 2023, and account for differences in coverage.
 
-1. Providing an offline cleaning and feature pipeline that processes 4.34 million station records and splits data strictly by time.
+### Explore
+Compare cities and explore geographical and pollutant patterns using the data available in the archive.
 
-2. Training and serializing an XGBoost regressor that predicts 1-hour-ahead PM2.5 levels.
+### Insights
+View analytical summaries derived from historical data. These findings are retrospective patterns and should not be interpreted as proof that a particular factor caused a pollution event.
 
-3. Using a pre-computed JSON aggregation cache ([data/cache/air_quality_cache.json](data/cache/air_quality_cache.json)) so the FastAPI backend can respond quickly without running queries against raw CSV or Parquet files at runtime.
+### Prediction
+- Enter current PM2.5 and optional recent pollutant or weather inputs.
+- Use preset scenarios or custom inputs.
+- Receive a one-hour-ahead PM2.5 estimate.
+- View the derived PM2.5 AQI sub-index, category and general health guidance.
 
-4. Serving an interactive web dashboard with zero Node.js build dependencies and locally bundled JavaScript libraries.
+## Data and Coverage
 
----
+The bundled archive is described by the project as historical Indian ambient air-quality observations from the CPCB monitoring network.
 
-## Key Features
-The application is organized into five functional dashboard views:
+| Property | Value |
+|---|---|
+| Records | 4,341,626 |
+| Cities | 10 |
+| Monitoring stations | 130 |
+| First archive timestamp | 17 February 2010, 12:00 |
+| Last archive timestamp | 31 March 2023, 23:00 |
+| Runtime analytics file | `data/cache/air_quality_cache.json` |
+| Processed input used for cache generation | `data/processed/air_quality_processed.parquet` |
 
-### 1. Home
-- **City selector:** Switch between 10 major metropolitan centers: Delhi, Mumbai, Bengaluru, Chennai, Kolkata, Hyderabad, Lucknow, Ahmedabad, Patna, and Pune.
+### Approximate city coverage
 
-- **Snapshot card:** Displays the latest recorded PM2.5 observation, corresponding CPCB category badge, meteorological stats (temperature, relative humidity, wind speed), and health advice.
+The dates below describe broad archive coverage, not continuous hourly observations. Each city, station and pollutant can have different gaps and valid measurement counts.
 
-- **India station map:** Interactive Leaflet map displaying monitoring centers color-coded by overall PM2.5 category, with clickable stations updating the snapshot panel.
+| City | Approximate coverage |
+|---|---|
+| Ahmedabad | 2015–2023 |
+| Bengaluru | 2015–2023 |
+| Chennai | 2015–2023 |
+| Delhi | 2010–2023 |
+| Hyderabad | 2015–2023 |
+| Kolkata | 2018–2023 |
+| Lucknow | 2015–2023 |
+| Mumbai | 2013–2023 |
+| Patna | 2013–2023 |
+| Pune | 2015–2023 |
 
-- **Insight cards:** Summarizes key environmental findings, such as winter pollution surges and commute-hour peaks.
+The archive ends in March 2023, so 2023 is a partial year. Missing station-hours and pollutant readings may affect chart values and comparisons.
 
-### 2. Air Quality
-- **Station-level breakdown:** Filter by specific CAAQMS monitoring stations (e.g., Anand Vihar or IGI Airport in Delhi; BTM Layout in Bengaluru) or view city-wide averages.
+### Supported pollutants
 
-- **6-pollutant comparison:** Shows concentrations for PM2.5, PM10, NO2, SO2, CO, and Ozone alongside official CPCB safe exposure thresholds.
+| Pollutant | Abbreviation | Unit used in the interface |
+|---|---|---|
+| Fine particulate matter | PM2.5 | µg/m³ |
+| Coarse particulate matter | PM10 | µg/m³ |
+| Nitrogen dioxide | NO2 | µg/m³ |
+| Sulphur dioxide | SO2 | µg/m³ |
+| Carbon monoxide | CO | mg/m³ |
+| Ozone | O3 | µg/m³ |
 
-- **24-hour historical trajectory:** Client-side Plotly line chart displaying hourly pollutant concentrations over the preceding 24 hours.
+Values in different units should not be compared directly on one numerical scale without conversion and context.
 
-- **Diurnal cycle chart:** Visualizes average hour-of-day concentration patterns.
+## Technology Stack
 
-- **Health precautions:** Displays practical cautionary advice targeted at sensitive populations.
+| Layer | Technologies |
+|---|---|
+| Language | Python |
+| Web server and API | FastAPI, Uvicorn |
+| Data processing | Pandas, NumPy |
+| Machine learning | XGBoost, scikit-learn |
+| Model persistence | Joblib |
+| Frontend | HTML, CSS, vanilla JavaScript |
+| Charts | Plotly.js |
+| Maps | Leaflet.js |
+| Automated tests | pytest |
+| Historical runtime data | Precomputed JSON cache |
 
-### 3. Explore
-- **Cross-city rankings:** Ranked bar charts comparing mean and median particulate concentrations across all 10 monitored cities.
+The historical dashboard, bundled frontend assets and model inference run locally. Live-data integrations and online map tiles may require an internet connection.
 
-- **Correlation heatmap:** Interactive Pearson correlation matrix showing co-movement between pollutants (e.g., PM2.5, PM10, and NOx).
-
-- **Long-term trajectories (2010–2023):** Multi-year trend lines showing historical annual changes across cities.
-
-- **Seasonal comparison:** Breakdown comparing particulate levels across Winter, Summer, Monsoon, and Post-Monsoon.
-
-### 4. Insights
-- **Pollution hotspots:** Quantitative identification of consistently elevated corridors (Patna, Delhi, Lucknow).
-
-- **Seasonal inversion ratio:** Documents the historical ~3.5x to 4.0x winter-to-monsoon particulate ratio caused by cold-weather atmospheric trapping.
-
-- **Diurnal commute peaks:** Details morning traffic waves (08:00–10:00) and nocturnal compression peaks (20:00–23:00) versus afternoon dispersion troughs.
-
-- **Smog chronology:** Retrospective look at documented severe pollution episodes.
-
-### 5. Prediction
-- **Input parameters:** Sliders and inputs for current PM2.5, previous lags (2h, 3h), temperature, relative humidity, wind speed, co-pollutants (NO2, CO, SO2, Ozone), month, hour, and weekend status.
-
-- **Preset scenarios:** One-click presets for common situations (**Delhi Winter Smog**, **Monsoon Clean Air**, **Summer Dust Storm**, **Moderate Urban Day**).
-
-- **Forecast results:** Submits parameters to the backend XGBoost model, returning the predicted next-hour PM2.5 concentration, the derived PM2.5 NAQI sub-index, and associated CPCB health guidance.
-
----
-
-## System Architecture and Data Flow
-```mermaid
-flowchart TD
-    subgraph OfflinePipeline["Offline Data and ML Pipeline"]
-        RawCSVs["Raw CAAQMS CSV Files<br/>(454 Station Archives)"] --> Loader["src/data_loader.py<br/>(Standardization and Metadata Merge)"]
-        Loader --> Preproc["src/preprocessor.py<br/>(Outlier Capping, Gap Filling, Parquet Export)"]
-        Preproc --> Parquet["air_quality_processed.parquet<br/>(4.34M Rows - Gitignored)"]
-        Parquet --> FeatEng["src/features.py<br/>(Lags 1-24h, Rolling Stats, Time Split)"]
-        FeatEng --> Trainer["src/model_trainer.py<br/>(TimeSeriesSplit Cross-Validation)"]
-        Trainer --> ModelFile["models/final_model.pkl<br/>(XGBoost Model - Tracked in Git)"]
-        Trainer --> MetricsCSV["models/model_metrics.csv<br/>(Evaluation Metrics)"]
-        Parquet --> CacheGen["src/generate_cache.py<br/>(Aggregates Trends and City Stats)"]
-        CacheGen --> CacheJSON["data/cache/air_quality_cache.json<br/>(381 KB - Tracked in Git)"]
-    end
-    subgraph RuntimeBackend["Runtime Server (server.py)"]
-        CacheJSON -->|Loaded into RAM on startup| MemoryCache["In-Memory Analytics Cache"]
-        ModelFile -->|Singleton load on first call| PredictorEngine["src/predictor.py<br/>(XGBoost Inference and Sub-Index)"]
-        FastAPIApp["FastAPI Application Server<br/>(Port 8000 via Uvicorn)"]
-        MemoryCache --> FastAPIApp
-        PredictorEngine --> FastAPIApp
-    end
-    subgraph ClientFrontend["Web Client (frontend/)"]
-        ClientJS["Vanilla JS Application (frontend/js/app.js)"]
-        FastAPIApp -->|JSON API Responses| ClientJS
-        ClientJS -->|HTTP Requests| FastAPIApp
-        ClientJS --> TabHome["Home (Snapshot and Leaflet Map)"]
-        ClientJS --> TabAQ["Air Quality (Station Analytics and Diurnal Charts)"]
-        ClientJS --> TabExplore["Explore (Cross-City Comparisons and Heatmap)"]
-        ClientJS --> TabInsights["Insights (Data-Backed Findings)"]
-        ClientJS --> TabPredict["Prediction (Interactive XGBoost Forecast)"]
-    end
-```
-
----
-
-## Machine Learning Methodology
-### Forecasting Objective and Horizon
-- **Target:** Ambient PM2.5 concentration (in µg/m³) at hour t.
-
-- **Horizon:** 1-hour-ahead regression forecast.
-
-- **Inputs:** Environmental observations, historical lags, and temporal indicators available at or prior to hour t-1.
-
-### Feature Engineering and Leakage Prevention
-Feature construction is station-aware and timestamp-aware. The target is PM2.5 at timestamp t; the forecast inputs must come from the previous observation hour where applicable.
-
-- **Pollutant Lags:** Exact timestamp lookups for PM2.5 at t-1h, t-2h, t-3h, t-6h, t-12h, and t-24h. Missing clock-hours are not treated as adjacent observations.
-
-- **Rolling Statistics:** Time-based 3-hour, 6-hour, and 24-hour rolling means and standard deviations that exclude the target observation.
-
-- **Co-Pollutants:** NO2, CO, SO2, Ozone, and NOx use their exact preceding-hour values where available.
-
-- **Meteorological Indicators:** Temperature, relative humidity, wind speed, solar radiation, and barometric pressure are aligned to the preceding clock hour.
-
-- **Calendar & Time Indicators:** Hour, month, day of week, season index, and weekend flag for the forecast target.
-
-- **Chronological Data Split:** The corrected model run partitions rows by unique timestamps:
-
-  - **Training:** Before 2019-06-11 16:00:00; 1,167,513 rows available, of which 800,000 were sampled for fitting.
-
-  - **Validation:** 2019-06-11 16:00:00 through before 2021-05-06 08:00:00 (1,285,756 rows).
-
-  - **Test:** From 2021-05-06 08:00:00 to the final archive timestamp, 2023-03-31 23:00:00 (1,638,400 rows).
-
-### Model Evaluation and Generalization Metrics
-The Prediction API loads the XGBoost model from [models/final_model.pkl](models/final_model.pkl) and its feature metadata from [models/preprocessor.pkl](models/preprocessor.pkl). A local SHA-256 comparison verified that these production-path artifacts are byte-for-byte identical to the corresponding timestamp-aligned candidate artifacts in the development working copy. The candidate directory is excluded by `.gitignore` and is not included in Git, so this verification is local evidence and cannot be independently repeated from a clean clone unless the candidate artifacts are regenerated or supplied.
-
-The evaluation record retains `candidate_only_not_promoted` and `production_model_replaced: false` because the candidate-training script saves candidate outputs separately and does not itself promote them. These fields describe the training script's action. They do not indicate different model weights: the serialized model currently used by the Prediction API matches the evaluated candidate. The candidate's recorded validation and held-out test metrics are listed below:
-
-| Model | Val MAE (µg/m³) | Val RMSE (µg/m³) | Val R² | Test MAE (µg/m³) | Test RMSE (µg/m³) | Test R² | Training Time (s) |
-| :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
-| **XGBoost (timestamp-aligned)** | **9.8476** | **18.4421** | **0.9463** | **9.1604** | **18.4241** | **0.9295** | — |
-
-> **Evaluation Scope:** The held-out test period begins on 2021-05-06 and ends at the final dataset timestamp, 2023-03-31 23:00. The model achieved R²=0.9295, MAE=9.1604 µg/m³, and RMSE=18.4241 µg/m³. It reduced test RMSE by 11.53% compared with the persistence baseline on the same rows. These are historical offline metrics, not guarantees of live-field accuracy.
-
----
-
-## PM2.5 Prediction and NAQI Sub-Index Calculation
-### Distinguishing PM2.5 Prediction from Full Composite NAQI
-Under official CPCB National Air Quality Index (NAQI) guidelines, a complete composite AQI requires calculating sub-indices for at least three pollutants (including at least PM10 or PM2.5) from 24-hour averages, where the overall index is the maximum sub-index: AQI = max(I_1, I_2, ..., I_n).
-
-In AIRWISE, the machine learning model specifically predicts the **1-hour-ahead PM2.5 concentration**. From this predicted value, the application derives a **PM2.5 AQI sub-index** using the official CPCB piecewise linear formula. It is not a complete multi-pollutant composite AQI forecast.
-
-### Breakpoint Formula
-$$
-
-I = \frac{I_{\text{high}} - I_{\text{low}}}{B_{\text{high}} - B_{\text{low}}} \times (C - B_{\text{low}}) + I_{\text{low}}
-
-$$
+## System Architecture
 
 ```text
-I = [ (I_high - I_low) / (B_high - B_low) ] * (C - B_low) + I_low
+Historical air-quality data
+          |
+          v
+Data processing and feature engineering
+          |
+     +----+------------------+
+     |                       |
+     v                       v
+Processed historical data  Model training/evaluation
+     |                       |
+     v                       v
+Precomputed JSON cache     Saved XGBoost model
+     |                     + preprocessing metadata
+     +-----------+-----------+
+                 |
+                 v
+           FastAPI backend
+                 |
+                 v
+       HTML/CSS/JavaScript UI
+        |        |         |
+        v        v         v
+      Home    Analytics  Prediction
+               and maps
 ```
 
-Where:
+### Main components
 
-- `C` is the predicted PM2.5 concentration in µg/m³ (clamped to >= 0).
+- `server.py` — FastAPI application, API routes and frontend serving.
+- `src/generate_cache.py` — Generates precomputed historical analytics from the processed dataset.
+- `src/features.py` — Builds time-aware model features.
+- `src/model_trainer.py` — Model training and evaluation workflow.
+- `scripts/train_candidate_model.py` — Trains and evaluates a candidate model; it does not automatically promote it.
+- `src/predictor.py` — Loads saved artifacts, prepares model inputs and generates forecasts.
+- `src/aqi.py` — Pollutant sub-index and related AQI calculations.
+- `frontend/` — Web pages, styles, JavaScript, charts and map assets.
 
-- `[B_low, B_high]` is the CPCB PM2.5 concentration breakpoint range.
+## Getting Started
 
-- `[I_low, I_high]` is the corresponding index sub-range.
+### Requirements
 
-### CPCB Breakpoint Mapping
-| Concentration (C in µg/m³) | Sub-Index Range (I) | NAQI Category | Category Color | CPCB Public Health Advisory |
-| :---: | :---: | :---: | :---: | :--- |
-| **0.0 – 30.0** | **0 – 50** | **Good** | `#10b981` | Minimal impact. Air quality is clean and poses little or no risk. |
-| **30.1 – 60.0** | **51 – 100** | **Satisfactory** | `#84cc16` | Minor breathing discomfort to sensitive individuals. |
-| **60.1 – 90.0** | **101 – 200** | **Moderate** | `#f59e0b` | Breathing discomfort to people with lung disease, asthma, and heart conditions. |
-| **90.1 – 120.0** | **201 – 300** | **Poor** | `#f97316` | Breathing discomfort to most people on prolonged exposure. |
-| **120.1 – 250.0** | **301 – 400** | **Very Poor** | `#ef4444` | Respiratory illness on prolonged exposure; significant impact on vulnerable groups. |
-| **> 250.0** | **401 – 500** | **Severe** | `#7f1d1d` | Serious health impact; affects healthy people and severely impacts vulnerable groups. |
+- Python 3.13, matching the current project dependency setup.
+- Git.
+- Internet access for initial repository cloning and package installation.
 
-*Disclaimer: Health advisories represent official CPCB public guidelines and are provided for educational and informational purposes. They do not constitute clinical or certified medical advice.*
+### 1. Clone the repository
 
----
-
-## Portability and Dataset Independence
-### Tracked Runtime Files vs Excluded Datasets
-AIRWISE is designed to run immediately after cloning without requiring large dataset downloads or model training:
-
-| Path | Tracked in Git? | File Size | Description |
-| :--- | :---: | :---: | :--- |
-| [data/cache/air_quality_cache.json](data/cache/air_quality_cache.json) | **Yes** | 2.35 MB | Precomputed analytics from historical observations; not current live readings. |
-| [models/final_model.pkl](models/final_model.pkl) | **Yes** | 2.38 MB | Promoted XGBoost model for one-hour-ahead PM2.5 prediction. |
-| [models/preprocessor.pkl](models/preprocessor.pkl) | **Yes** | 2.8 KB | Feature names and training-set medians used during inference. |
-| [models/model_metrics.csv](models/model_metrics.csv) | **Yes** | 160 B | Promoted model validation and test metrics. |
-| [models/final_model_evaluation.json](models/final_model_evaluation.json) | **Yes** | 1.56 KB | Model evaluation and persistence-baseline comparison. |
-| [frontend/static/vendor/](frontend/static/vendor) | **Yes** | ~5.0 MB | Bundled Leaflet and Plotly.js vendor libraries. |
-| `data/raw/*.csv` | **No** (GitIgnored) | ~2 GB | 454 raw CPCB station archives (only needed for retraining). |
-| `data/processed/*.parquet` | **No** (GitIgnored) | Approximately 114 MB locally | Needed for retraining and candidate evaluation, not normal dashboard inference. |
-| `reports/figures/*.html` | **No** (GitIgnored) | — | Generated standalone interactive figures. |
-
-### Startup Logic on a Fresh Clone
-1. When [server.py](server.py) starts, it checks for `data/cache/air_quality_cache.json`.
-
-2. Because this file is committed to Git, the server loads it into memory immediately.
-
-3. Prediction requests use the committed [models/final_model.pkl](models/final_model.pkl) artifact.
-
-4. **Conclusion:** You do not need the 2 GB raw CSV files, the 301 MB Parquet file, or the model training scripts to run the web application on a fresh machine.
-
-> **Caution:** Do not delete `data/cache/air_quality_cache.json`. If deleted, the server will attempt to run `src/generate_cache.py`, which requires the raw CAAQMS dataset.
-
-### Offline Operation and Limitations
-- **Local Application Core:** The FastAPI server, in-memory cache, XGBoost inference engine, and Plotly charts run entirely on the local machine without internet access.
-
-- **Locally Bundled Assets:** Leaflet and Plotly.js are stored in [frontend/static/vendor/](frontend/static/vendor), eliminating external CDN dependencies.
-
-- **Map Tile Limitation:** The Leaflet map in the Home view fetches base map imagery from `https://tile.openstreetmap.org/{z}/{x}/{y}.png`.
-
-  - **When online:** Map renders with full OpenStreetMap geographic tiles.
-
-  - **When offline:** Leaflet initializes and displays city station markers and hover tooltips, but the map background will appear as an empty grid unless tiles were previously cached by the browser.
-
----
-
-## Repository Structure
-```text
-air-quality-analysis/
-├── data/
-│   ├── cache/
-│   │   └── air_quality_cache.json       # Precomputed analytics cache (381 KB, tracked in Git)
-│   ├── processed/                       # Local directory for processed Parquet (gitignored)
-│   └── raw/                             # Local directory for raw CPCB station CSVs (gitignored)
-│
-├── frontend/                            # Single-page web dashboard
-│   ├── css/
-│   │   └── styles.css                   # Custom styling and CPCB color tokens
-│   ├── js/
-│   │   ├── app.js                       # State management, API client, router
-│   │   ├── home.js                      # Home view: Snapshot, city search, Leaflet map
-│   │   ├── air_quality.js               # Station view: 6-pollutant breakdown, 24h and diurnal charts
-│   │   ├── explore.js                   # Cross-city comparison, correlation heatmaps, multi-year trends
-│   │   ├── insights.js                  # Analytical deep-dives: Hotspots, winter inversion, commute waves
-│   │   └── prediction.js                # ML forecasting form, preset scenario handlers, advisory cards
-│   ├── static/vendor/                   # Offline vendor libraries
-│   │   ├── leaflet.css & leaflet.js     # Leaflet mapping engine (v1.9.4)
-│   │   └── plotly.min.js                # Plotly graphing library (v2.x, 4.8 MB)
-│   ├── index.html                       # Application HTML entry point
-│   ├── privacy-policy.html              # Privacy policy page
-│   └── terms.html                       # Terms and conditions page
-│
-├── models/
-│   ├── final_model.pkl                  # Serialized XGBoost Regressor (2.61 MB, tracked in Git)
-│   ├── preprocessor.pkl                 # Serialized feature transformation pipeline (961 B, tracked in Git)
-│   └── model_metrics.csv                # Benchmark evaluation results (MAE, RMSE, R2, training time)
-│
-├── reports/
-│   └── figures/                         # Output directory for generated figures (.gitkeep)
-│
-├── src/                                 # Python source package
-│   ├── __init__.py                      # Package marker
-│   ├── config.py                        # Centralized paths, column mappings, CPCB breakpoints, split dates
-│   ├── data_loader.py                   # Low-memory ingestion of raw CSVs and metadata merge
-│   ├── preprocessor.py                  # Gap filling, outlier capping, negative cleanup, NAQI formula
-│   ├── features.py                      # Leak-free lag/rolling features and chronological split
-│   ├── model_trainer.py                 # Model evaluation suite, TimeSeriesSplit CV, hyperparameter tuning
-│   ├── predictor.py                     # Inference engine, training-median imputer, CPCB health guidance
-│   ├── eda.py                           # 12 modular Plotly and Matplotlib visualization functions
-│   └── generate_cache.py                # Aggregates processed Parquet into air_quality_cache.json
-│
-├── tests/                               # Automated test suite (17 passed)
-│   ├── test_api.py                      # Integration tests for all FastAPI endpoints
-│   ├── test_features.py                 # Tests for lag shifts, rolling windows, and split bounds
-│   ├── test_predictor.py                # Tests for scalar breakpoints, negative clamping, category metadata
-│   └── test_preprocessor.py             # Tests for NAQI formulas, non-negative bounds, outlier limits
-│
-├── server.py                            # FastAPI backend application and static asset server
-├── requirements.txt                     # Python dependencies (Python 3.13+)
-├── pytest.ini                           # Pytest configuration (pythonpath = .)
-└── .gitignore                           # Git ignore rules
-```
-
----
-
-## Installation and Setup
-### Prerequisites
-- **Git:** [git-scm.com](https://git-scm.com/downloads)
-
-- **Python 3.13:** [python.org/downloads](https://www.python.org/downloads/)
-
-  - **Tested Python version:** **Python 3.13.11** (64-bit Windows).
-
-  - **Minimum supported version:** Python 3.13 is required by dependency versions in [requirements.txt](requirements.txt) (`pandas>=2.3.0`, `scikit-learn>=1.7.0`, `xgboost>=3.4.0`).
-
-  - **Compatibility note:** Do not assume future Python versions (such as Python 3.14) will work until binary wheels for compiled packages are released and verified.
-
-  - **Windows note:** Check **"Add python.exe to PATH"** during installation.
-
-Verify your installed versions:
-
-```bash
-git --version
-python --version   # Or: py --version on Windows
-```
-
----
-
-### Windows Setup (PowerShell)
 ```powershell
-# 1. Clone the repository
 git clone https://github.com/Shakir-j/air-quality-analysis.git
-cd air-quality-analysis
-# 2. Create a virtual environment with Python 3.13 explicitly
+Set-Location air-quality-analysis
+```
+
+### 2. Create a virtual environment
+
+```powershell
 py -3.13 -m venv .venv
-# 3. Activate the virtual environment
-.\.venv\Scripts\Activate.ps1
-# (If PowerShell blocks script execution, run:
-# Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass)
-# 4. Upgrade pip and install dependencies
-python -m pip install --upgrade pip
-pip install -r requirements.txt
-# 5. Start the application server
-python server.py
 ```
 
-Open your browser to: **`http://127.0.0.1:8000`**
+### 3. Install dependencies
 
-To stop the server, press `Ctrl + C` in the PowerShell window.
-
----
-
-### macOS and Linux Setup
-```bash
-# 1. Clone the repository
-git clone https://github.com/Shakir-j/air-quality-analysis.git
-cd air-quality-analysis
-# 2. Create a virtual environment using Python 3.13
-python3.13 -m venv .venv
-# 3. Activate the virtual environment
-source .venv/bin/activate
-# 4. Upgrade pip and install dependencies
-pip install --upgrade pip
-pip install -r requirements.txt
-# 5. Start the application server
-python server.py
+```powershell
+.\.venv\Scripts\python.exe -m pip install --upgrade pip
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
 ```
 
-Open your browser to: **`http://127.0.0.1:8000`**
+### 4. Start the application
 
----
+```powershell
+.\.venv\Scripts\python.exe server.py
+```
 
-## Dashboard Walkthrough
-### 1. City Overview (Home)
-- Use the **Search a city or monitoring station...** dropdown to switch between monitored metropolitan areas.
+Keep the terminal open while the server runs.
 
-- The snapshot card updates with current particulate observations, the corresponding NAQI category badge, and weather readings.
+### 5. Open AIRWISE
 
-- Click any station point on the interactive map to inspect that location.
+Navigate to **http://127.0.0.1:8000** in your browser. To stop the server, press `Ctrl+C` in the terminal.
 
-### 2. Station Deep-Dive (Air Quality)
-- Navigate to the **Air Quality** tab.
+For an existing local installation:
 
-- Use the **Station** dropdown to select an individual CAAQMS station (e.g., **Anand Vihar** in Delhi or **BTM Layout** in Bengaluru).
+```powershell
+Set-Location "C:\Projects\air-quality-analysis"
+& ".\.venv\Scripts\python.exe" server.py
+```
 
-- Review the six pollutant comparison bars against CPCB limits.
+## Using AIRWISE
 
-- Inspect the 24-hour historical trend and diurnal cycle Plotly charts.
+### Historical analysis
 
-### 3. Cross-City Analytics (Explore)
-- Navigate to the **Explore** tab to compare average particulate levels across all 10 cities.
+1. Open **Air Quality**.
+2. Choose a city or station where available.
+3. Select a pollutant and inspect its monthly or yearly chart.
+4. Read chart tooltips for units, valid observation counts and coverage dates.
+5. Consider missing values and partial-year coverage when comparing results.
 
-- Review the multi-pollutant Pearson correlation matrix to see relationships between particulate and gaseous pollutants.
+### Prediction
 
-### 4. Predicting Next-Hour Air Quality (Prediction)
-- Navigate to the **Prediction** tab.
+1. Open **Prediction**.
+2. Select a preset or enter custom values.
+3. Provide the current PM2.5 concentration and any other inputs available to you.
+4. Submit the form.
+5. Review the predicted PM2.5 concentration, derived sub-index, category and health guidance.
 
-- Select a scenario preset (such as **Delhi Winter Smog Episode**) or configure custom parameters.
+The prediction is a model estimate, not a current sensor reading or a guarantee of future conditions.
 
-- Click **Predict Air Quality**.
+## Machine-Learning Model
 
-- The system returns the forecasted PM2.5 level, the derived CPCB sub-index, and public health recommendations.
+### Objective and target
 
----
+The saved model estimates **PM2.5 concentration one hour ahead**. It is not a multi-day forecast model.
+
+### Model and features
+
+The saved inference artifact is an XGBoost regressor with 28 input features, including:
+
+- Calendar features such as year, month, hour, day of week, season and weekend status.
+- PM2.5 lags at selected historical intervals.
+- Rolling PM2.5 means and standard deviations.
+- Recent co-pollutant values, including NO2, CO, SO2, ozone and NOx.
+- Meteorological variables including relative humidity, wind speed, temperature, solar radiation and barometric pressure.
+
+Feature engineering is station-aware and timestamp-aware. Missing input features at inference are filled using medians stored with the model's preprocessing metadata.
+
+### Saved model artifacts
+
+- `models/final_model.pkl` — model used by the prediction pipeline.
+- `models/preprocessor.pkl` — expected feature names and training-set medians.
+- `models/model_metrics.csv` — recorded model evaluation metrics.
+- `models/final_model_evaluation.json` — evaluation details and baseline comparison.
+
+The candidate training script is `scripts/train_candidate_model.py`. It saves candidate outputs separately and does not automatically promote a candidate. Running the training script is not necessary to start the website.
+
+## Model Evaluation
+
+The saved evaluation record reports the following results for the timestamp-aligned XGBoost candidate. These are recorded offline metrics; they were not recomputed while preparing this README.
+
+### Candidate model
+
+| Metric | Validation | Held-out test |
+|---|---:|---:|
+| MAE | 9.8476 µg/m³ | 9.1604 µg/m³ |
+| RMSE | 18.4421 µg/m³ | 18.4241 µg/m³ |
+| R² | 0.9463 | 0.9295 |
+| Rows | 1,285,756 | 1,638,400 |
+
+### Persistence baseline
+
+| Metric | Validation | Held-out test |
+|---|---:|---:|
+| MAE | 10.7664 µg/m³ | 9.8178 µg/m³ |
+| RMSE | 21.0613 µg/m³ | 20.8242 µg/m³ |
+
+The evaluation file reports an RMSE improvement of **12.44% on validation** and **11.53% on the held-out test set** over the persistence baseline. R² is a regression metric, not the percentage of predictions that are correct. Historical offline scores do not guarantee the same performance on live conditions, new locations or later periods.
+
+### Evaluation setup
+
+- Split policy: chronological 70/15/15 by unique timestamp.
+- Validation begins: `2019-06-11 16:00:00`.
+- Test begins: `2021-05-06 08:00:00` and ends at `2023-03-31 23:00:00`.
+- Training rows available: 1,167,513.
+- Training rows used for this candidate: 800,000.
+- Number of input features: 28.
+
+### Artifact status clarification
+
+The evaluation metadata retains `candidate_only_not_promoted` and `production_model_replaced: false` because the candidate-training script does not automatically promote its output. In the development working copy, SHA-256 checks showed that the model and preprocessor at the production paths were byte-for-byte identical to the corresponding candidate artifacts.
+
+The candidate-validation directory is excluded by `.gitignore` and is not stored in Git. Therefore, that hash comparison was a **local verification** and cannot be repeated from a clean clone unless the candidate files are regenerated or supplied. The evaluation metrics above are the saved values; the status fields have not been silently reinterpreted as a new promotion event.
+
+## AQI Methodology
+
+AIRWISE has two distinct kinds of index output.
+
+### Historical pollutant index calculations
+
+The current implementation in `src/aqi.py` uses pollutant-specific concentration breakpoints and averaging-window requirements:
+
+- PM2.5, PM10, NO2 and SO2: 24-hour windows with at least 16 valid hourly readings.
+- CO and ozone: 8-hour windows with at least 8 valid hourly readings.
+- The composite estimate requires at least three qualifying pollutant sub-indices, including at least one particulate pollutant.
+
+Whether an index can be calculated depends on the available valid measurements.
+
+### Prediction output
+
+The Prediction tab converts the predicted PM2.5 concentration into a **PM2.5-derived sub-index**. This is **not a forecast of the complete multi-pollutant CPCB AQI**. An index derived from an hourly model prediction should not be mistaken for an official regulatory AQI based on the prescribed measurements and averaging periods.
+
+Health guidance is general information and not a personalised medical assessment.
 
 ## API Reference
-The FastAPI backend runs at base URL `http://127.0.0.1:8000`.
 
-### Endpoints Summary
-| Method | Endpoint | Query / Body Parameters | Description |
-| :---: | :--- | :--- | :--- |
-| `GET` | `/` | None | Serves the single-page application ([frontend/index.html](frontend/index.html)). |
-| `GET` | `/privacy-policy` | None | Serves the privacy policy page ([frontend/privacy-policy.html](frontend/privacy-policy.html)). |
-| `GET` | `/terms` | None | Serves the terms and conditions page ([frontend/terms.html](frontend/terms.html)). |
-| `GET` | `/api/locations` | None | Returns metadata, coordinates, station counts, and historical metrics for all 10 cities. |
-| `GET` | `/api/air-quality` | `city` (string, default: `"Delhi"`)\<br>`station` (string, optional) | Returns city/station snapshot, pollutant breakdown, 24h recent trend, and diurnal cycle. |
-| `GET` | `/api/trends` | `city` (string, default: `"Delhi"`)\<br>`pollutant` (string, default: `"PM2.5"`) | Historical monthly and yearly trends (2010–2023). |
-| `GET` | `/api/comparison` | `cities` (comma-separated, optional)\<br>`pollutant` (string, default: `"PM2.5"`) | Cross-city metrics, correlation matrix, and seasonal patterns. |
-| `GET` | `/api/insights` | None | Aggregated data on hotspots, seasonal inversion ratios, and diurnal peaks. |
-| `POST`| `/api/prediction` | JSON Body (`PredictionRequest`) | Runs XGBoost inference for next-hour PM2.5 and computes derived CPCB NAQI sub-index. |
+The frontend uses the FastAPI endpoints listed below.
 
----
+| Method | Endpoint | Purpose |
+|---|---|---|
+| `GET` | `/api/locations` | Available city and station information |
+| `GET` | `/api/air-quality` | Air-quality summaries for the selected scope |
+| `GET` | `/api/trends` | Historical monthly and yearly trends |
+| `GET` | `/api/comparison` | Cross-city comparison data |
+| `GET` | `/api/insights` | Data-derived environmental insights |
+| `POST` | `/api/prediction` | Input-based one-hour-ahead PM2.5 prediction |
+| `POST` | `/api/prediction/live` | Attempts prediction using recent observations and weather inputs |
 
-### Prediction Endpoint (Illustrative Example)
-#### Request Schema: POST /api/prediction
-**Headers:** `Content-Type: application/json`
+### Example prediction request
 
-The request body accepts the following fields validated by Pydantic:
+Send a JSON body to `POST /api/prediction`:
 
-- `pm25_current` **(required float, 0.0 to 1000.0)**: Current PM2.5 concentration in µg/m³.
-
-- `city` **(optional string, default: "Delhi")**: Target city name.
-
-- `pm25_lag_2h` **(optional float, 0.0 to 1000.0)**: PM2.5 concentration 2 hours prior.
-
-- `pm25_lag_3h` **(optional float, 0.0 to 1000.0)**: PM2.5 concentration 3 hours prior.
-
-- `no2` **(optional float, 0.0 to 500.0)**: Current NO2 concentration in µg/m³.
-
-- `co` **(optional float, 0.0 to 50.0)**: Current CO concentration in mg/m³.
-
-- `so2` **(optional float, 0.0 to 300.0)**: Current SO2 concentration in µg/m³.
-
-- `ozone` **(optional float, 0.0 to 500.0)**: Current Ozone concentration in µg/m³.
-
-- `relative_humidity` **(optional float, 0.0 to 100.0)**: Relative humidity percentage.
-
-- `wind_speed` **(optional float, 0.0 to 30.0)**: Wind speed in m/s.
-
-- `temperature` **(optional float, -20.0 to 60.0)**: Ambient temperature in °C.
-
-- `month` **(optional integer, 1 to 12, default: 11)**: Calendar month.
-
-- `hour` **(optional integer, 0 to 23, default: 18)**: Hour of day.
-
-- `is_weekend` **(optional integer, 0 or 1, default: 0)**: Weekend flag.
-
-#### Illustrative Request Body
 ```json
 {
-  "city": "Delhi",
-  "pm25_current": 145.0,
-  "pm25_lag_2h": 138.0,
-  "pm25_lag_3h": 125.0,
-  "temperature": 16.5,
-  "relative_humidity": 82.0,
-  "wind_speed": 0.8,
-  "no2": 45.0,
-  "co": 1.8,
-  "so2": 15.0,
-  "ozone": 22.0,
-  "month": 11,
-  "hour": 21,
-  "is_weekend": 0
+  "city": "Delhi",
+  "pm25_current": 50,
+  "pm25_lag_2h": 45,
+  "pm25_lag_3h": 48,
+  "no2": 25,
+  "co": 0.8,
+  "so2": 8,
+  "ozone": 20,
+  "hour": 18,
+  "month": 11,
+  "day_of_week": 2,
+  "is_weekend": 0
 }
 ```
 
-#### Illustrative Response Body (200 OK)
+`pm25_current` is required. Other supported inputs are optional and are handled according to the backend's feature-preparation logic.
+
+An example successful response is shown below. The numbers are illustrative; results depend on request values.
+
 ```json
 {
-  "status": "success",
-  "predicted_pm25": 141.2,
-  "predicted_aqi": 316.3,
-  "aqi_category": "Very Poor",
-  "color": "#ef4444",
-  "badge_bg": "rgba(239, 68, 68, 0.15)",
-  "advisory": "Respiratory illness on prolonged exposure. Significant health impact on vulnerable groups.",
-  "precautions": [
-    "Avoid outdoor physical activity and exercise; keep windows shut.",
-    "Use certified HEPA air filtration indoors where accessible.",
-    "Wear an effective N95/N99 respirator mask if going outside is unavoidable."
-  ],
-  "provenance": "Model prediction (1-hour ahead forecast)"
+  "status": "success",
+  "predicted_pm25": 65.49,
+  "predicted_aqi": 118.3,
+  "aqi_category": "Moderate",
+  "provenance": "Model prediction (1-hour ahead forecast)"
 }
 ```
 
----
+The `/api/prediction/live` endpoint depends on configured upstream data sources and network availability. It may fail when an external service is unavailable.
 
-## Testing and Verification
-The latest local verification passed all 39 automated tests. Browser verification passed all five views and reported zero severe JavaScript console errors. The suite covers API routes, time-aware feature engineering, prediction behavior, and AQI sub-index logic:
+## Project Structure
 
-- [tests/test_api.py](tests/test_api.py): Tests HTTP status codes, output schemas, 10-city counts, and payload responses across all API endpoints.
-
-- [tests/test_features.py](tests/test_features.py): Verifies exact-timestamp lag alignment across missing hours, rolling-window exclusion of the target observation, and exact preceding-hour co-pollutant values.
-
-- [tests/test_predictor.py](tests/test_predictor.py): Tests scalar NAQI conversions across all six CPCB category ranges, negative concentration clamping, and category metadata completeness.
-
-- [tests/test_preprocessor.py](tests/test_preprocessor.py): Tests CPCB NAQI mathematical breakpoints, vectorized pandas series conversions, non-negative variable definitions, and sensor outlier caps (PM2.5 <= 500 µg/m³, RH <= 100%, WS <= 50 m/s).
-
-### Running Tests
-Ensure your virtual environment is active, then run:
-
-```bash
-pytest tests/ -v
+```text
+air-quality-analysis/
+├── server.py
+├── requirements.txt
+├── pytest.ini
+├── README.md
+├── data/
+│   ├── cache/
+│   │   └── air_quality_cache.json
+│   ├── processed/
+│   │   └── air_quality_processed.parquet
+│   └── raw/
+├── frontend/
+│   ├── index.html
+│   ├── css/
+│   ├── js/
+│   └── static/
+│       └── vendor/
+├── models/
+│   ├── final_model.pkl
+│   ├── preprocessor.pkl
+│   ├── model_metrics.csv
+│   └── final_model_evaluation.json
+├── scripts/
+│   └── train_candidate_model.py
+├── src/
+│   ├── aqi.py
+│   ├── config.py
+│   ├── data_loader.py
+│   ├── eda.py
+│   ├── features.py
+│   ├── generate_cache.py
+│   ├── live_data.py
+│   ├── model_trainer.py
+│   ├── predictor.py
+│   └── preprocessor.py
+└── tests/
+    ├── test_api.py
+    └── test_predictor_time_alignment.py
 ```
 
-**Latest local verification:** 38 automated tests passed. Browser verification passed all five views with zero severe JavaScript console errors.
+Raw and processed datasets can vary between local setups. For normal website operation, the precomputed cache and saved model artifacts are the key runtime assets.
 
----
+## Testing
+
+Run the automated test suite from the project root:
+
+```powershell
+.\.venv\Scripts\python.exe -m pytest -q
+```
+
+The latest recorded local run passed **39 tests**. A separate browser walkthrough also verified the five application views. The Prediction tab was checked through Chrome DevTools: `POST /api/prediction` returned HTTP `200 OK`, and the UI values matched the API response after display rounding.
+
+The timestamp-boundary regression test is in `tests/test_predictor_time_alignment.py`. It verifies that an observation at 23:00 on Sunday, 31 December 2023, is forecast for 00:00 on Monday, 1 January 2024, with the target hour, month, weekday and weekend features aligned to the forecast target.
+
+These results describe the development environment and do not guarantee identical behaviour on every machine or dependency version.
+
+## Regenerating the Analytics Cache
+
+Only regenerate the cache after the processed dataset or cache-generation logic changes. Ensure the processed Parquet input exists, then run:
+
+```powershell
+.\.venv\Scripts\python.exe .\src\generate_cache.py
+```
+
+Review generated changes and rerun the tests before committing. The website does not need to run the cache generator on every startup.
 
 ## Limitations
-- **Forecast Horizon:** The machine learning model provides a 1-hour-ahead forecast. It is not designed for multi-day or seasonal forecasts.
 
-- **Sub-Index vs. Composite AQI:** Predictions reflect the PM2.5 sub-index derived from estimated PM2.5 concentrations, rather than a full multi-pollutant composite NAQI.
+- **Historical cutoff:** The bundled archive ends on 31 March 2023; it is not a live feed.
+- **Uneven coverage:** Cities, stations and pollutants can have different observation periods and missing values.
+- **Forecast horizon:** The model is intended for one-hour-ahead PM2.5 prediction, not multi-day forecasting.
+- **Missing inputs:** Inference can substitute training-set medians for missing features; this may make a forecast less representative of unusual conditions.
+- **Generalisation:** Offline metrics do not guarantee performance in current conditions or unseen locations.
+- **AQI interpretation:** The prediction's PM2.5 sub-index is not a complete composite AQI forecast.
+- **Live-data dependencies:** Current observations and weather integrations may require internet access and functioning external services.
+- **Map tiles:** Map backgrounds may depend on an online tile provider even when the rest of the application runs locally.
+- **Data licensing:** Check the original dataset's source, terms and attribution requirements before redistributing raw data.
 
-- **Map Background Online Dependency:** Leaflet tile rendering depends on network connectivity to OpenStreetMap servers. In offline environments without cached tiles, city markers and tooltips render on an empty grid.
+## SDG Alignment
 
-- **Cache Regeneration Requirement:** The application runs out of the box because `data/cache/air_quality_cache.json` is committed. If this file is deleted, regenerating it requires the original raw CAAQMS station CSV files, which are excluded from Git due to their size (~2 GB).
+AIRWISE aligns with the aims of:
 
----
+- **[SDG 11 — Sustainable Cities and Communities](https://sdgs.un.org/goals/goal11):** Helps users explore historical urban air-quality patterns.
+- **[SDG 3 — Good Health and Well-Being](https://sdgs.un.org/goals/goal3):** Presents air-pollution information and general guidance about potential exposure concerns.
 
-## Roadmap
-The following items represent potential future enhancements (distinguished from currently functional features):
-
-- **Deployment:** Provide a Dockerfile and docker-compose configuration for containerized deployment.
-
-- **CI/CD:** Set up GitHub Actions workflows to run pytest automatically on push and pull requests.
-
-- **Multi-Step Modeling:** Implement multi-horizon 24-hour sequence forecasting using recurrent or transformer-based architectures (LSTM/TFT).
-
-- **Spatial Modeling:** Explore Spatial Graph Neural Networks (GNNs) incorporating inter-station wind vector matrices.
-
-- **Remote Sensing:** Integrate NASA MODIS/VIIRS satellite Aerosol Optical Depth (AOD) data to monitor regional biomass burning plumes.
+This is an educational and analytical project. It does not replace environmental regulators, official monitoring services or medical advice.
 
 ---
 
-## License and Attribution
-- **Repository:** [https://github.com/Shakir-j/air-quality-analysis](https://github.com/Shakir-j/air-quality-analysis)
+## Repository
 
-- **Data Source:** Ambient air quality records sourced from the Central Pollution Control Board (CPCB), Ministry of Environment, Forest and Climate Change, Government of India.
+**GitHub:** https://github.com/Shakir-j/air-quality-analysis
 
-- **License Status:** Previous repository documentation referenced the MIT License; however, no standalone `LICENSE` text file is currently committed to the repository root. Licensing terms remain subject to the repository maintainer formally adding a `LICENSE` file.
+Contributions and further development should preserve the distinction between historical measurements, model predictions, pollutant sub-indices and full composite AQI values.
