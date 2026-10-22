@@ -208,9 +208,9 @@ Feature construction is station-aware and timestamp-aware. The target is PM2.5 a
   - **Test:** From 2021-05-06 08:00:00 to the final archive timestamp, 2023-03-31 23:00:00 (1,638,400 rows).
 
 ### Model Evaluation and Generalization Metrics
-The promoted model is an XGBoost regressor trained with the timestamp-aligned feature pipeline. The corrected training run evaluated this configuration against a persistence baseline using chronological validation and test periods.
+The Prediction API loads the XGBoost model from [models/final_model.pkl](models/final_model.pkl) and its feature metadata from [models/preprocessor.pkl](models/preprocessor.pkl). A local SHA-256 comparison verified that these production-path artifacts are byte-for-byte identical to the corresponding timestamp-aligned candidate artifacts in the development working copy. The candidate directory is excluded by `.gitignore` and is not included in Git, so this verification is local evidence and cannot be independently repeated from a clean clone unless the candidate artifacts are regenerated or supplied.
 
-The promoted model, **XGBoost (timestamp-aligned)**, is saved to [models/final_model.pkl](models/final_model.pkl). Its validation and held-out test metrics are listed below:
+The evaluation record retains `candidate_only_not_promoted` and `production_model_replaced: false` because the candidate-training script saves candidate outputs separately and does not itself promote them. These fields describe the training script's action. They do not indicate different model weights: the serialized model currently used by the Prediction API matches the evaluated candidate. The candidate's recorded validation and held-out test metrics are listed below:
 
 | Model | Val MAE (µg/m³) | Val RMSE (µg/m³) | Val R² | Test MAE (µg/m³) | Test RMSE (µg/m³) | Test R² | Training Time (s) |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: |

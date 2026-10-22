@@ -366,10 +366,10 @@ def predict_from_live_observation(live_data: dict[str, Any]) -> dict[str, Any]:
 
     forecast = predict_from_simple_inputs(
         pm25_current=current_pm25,
-        hour=obs_dt.hour,
-        month=obs_dt.month,
-        day_of_week=obs_dt.weekday(),
-        is_weekend=1 if obs_dt.weekday() >= 5 else 0,
+        hour=target_dt.hour,
+        month=target_dt.month,
+        day_of_week=target_dt.weekday(),
+        is_weekend=1 if target_dt.weekday() >= 5 else 0,
         no2=no2,
         co=co,
         so2=so2,

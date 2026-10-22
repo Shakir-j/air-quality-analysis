@@ -53,5 +53,24 @@
       "R2": 0.9295
     },
     "production_model_replaced": false
+  },
+  "artifact_identity_verification": {
+    "verified_date": "2026-10-22",
+    "method": "SHA-256",
+    "production_model_path": "models/final_model.pkl",
+    "candidate_model_path": "models/candidate_validation_20261021_234145/candidate_model.pkl",
+    "production_model_sha256": "fdeccbecf8659b4ca49cef492b6d1c9aeabaecb7f4c18b0952e1db910b2d5c41",
+    "candidate_model_sha256": "fdeccbecf8659b4ca49cef492b6d1c9aeabaecb7f4c18b0952e1db910b2d5c41",
+    "model_artifacts_identical": true,
+    "production_preprocessor_path": "models/preprocessor.pkl",
+    "candidate_preprocessor_path": "models/candidate_validation_20261021_234145/candidate_preprocessor.pkl",
+    "production_preprocessor_sha256": "ad206b777dec85dfc8bc94d87d6df9d48cea880ea6b5f162b0982bc920e09257",
+    "candidate_preprocessor_sha256": "ad206b777dec85dfc8bc94d87d6df9d48cea880ea6b5f162b0982bc920e09257",
+    "preprocessor_artifacts_identical": true,
+    "note": "Production-path model and preprocessor hashes match the candidate artifacts present in the local working copy. Candidate artifacts are ignored and not tracked by Git. The candidate training script did not itself perform promotion. A fresh clone cannot repeat the candidate hash comparison unless the candidate files are regenerated or supplied.",
+    "verification_scope": "local_working_copy_only",
+    "candidate_artifacts_tracked_by_git": false,
+    "candidate_artifacts_ignored_by_git": true,
+    "reproducible_from_clean_clone": false
   }
 }
