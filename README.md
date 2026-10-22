@@ -9,7 +9,7 @@
 
 [![Plotly](https://img.shields.io/badge/Plotly-7.0%2B-3F4F75?logo=plotly&logoColor=white)](https://plotly.com/)
 
-[![Tests](https://img.shields.io/badge/Tests-38%20Passed-brightgreen?logo=pytest&logoColor=white)](tests)
+[![Tests](https://img.shields.io/badge/Tests-39%20Passed-brightgreen?logo=pytest&logoColor=white)](tests)
 
 AIRWISE is a local environmental intelligence and time-series forecasting application for Indian ambient air quality. It analyzes historical CPCB monitoring observations from 10 Indian cities and 130 stations, covering 2010-02-17 through 2023-03-31. It visualizes spatial and temporal patterns and provides one-hour-ahead PM2.5 forecasts using XGBoost. The bundled archive is historical, not a live feed, and contains missing station-hours.
 
@@ -552,7 +552,7 @@ The request body accepts the following fields validated by Pydantic:
 ---
 
 ## Testing and Verification
-The latest local verification passed all 38 automated tests. Browser verification passed all five views and reported zero severe JavaScript console errors. The suite covers API routes, time-aware feature engineering, prediction behavior, and AQI sub-index logic:
+The latest local verification passed all 39 automated tests. Browser verification passed all five views and reported zero severe JavaScript console errors. The suite covers API routes, time-aware feature engineering, prediction behavior, and AQI sub-index logic:
 
 - [tests/test_api.py](tests/test_api.py): Tests HTTP status codes, output schemas, 10-city counts, and payload responses across all API endpoints.
 
