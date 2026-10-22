@@ -200,6 +200,10 @@ def get_air_quality(
         "stations": stations,
         "selected_station": selected_station,
         "data_scope": data_scope,
+        "archive_coverage": {
+            "start": selected_station.get("date_min") if selected_station else city_data["date_start"],
+            "end": selected_station.get("date_max") if selected_station else city_data["date_end"],
+        },
         "latest_recorded": latest_recorded,
         "pollutant_averages": pollutant_averages,
         "recent_trend": recent_trend,

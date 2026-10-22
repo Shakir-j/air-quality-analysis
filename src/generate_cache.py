@@ -404,26 +404,69 @@ def compute_cache():
             })
         cache["monthly_trends"][city] = m_series
 
-        # Yearly stats
+        # Yearly means and valid-record counts for all six pollutants.
         cy = c_df.groupby("year", observed=True)
         y_stats = cy.agg({
             "PM2.5 (ug/m3)": ["mean", "median", "count"],
-            "PM10 (ug/m3)": "mean",
-            "NO2 (ug/m3)": "mean",
-            "SO2 (ug/m3)": "mean",
+            "PM10 (ug/m3)": ["mean", "count"],
+            "NO2 (ug/m3)": ["mean", "count"],
+            "SO2 (ug/m3)": ["mean", "count"],
+            "CO (mg/m3)": ["mean", "count"],
+            "Ozone (ug/m3)": ["mean", "count"],
         }).reset_index()
+
+        year_bounds = c_df.groupby("year", observed=True)["timestamp"].agg(["min", "max"])
+        stations_by_year = cy["station_id"].nunique()
+        city_archive_end = pd.to_datetime(c_df["timestamp"].max())
+
         y_series = []
         for _, r in y_stats.iterrows():
-            yr_val = int(r["year"].iloc[0] if isinstance(r["year"], pd.Series) else r["year"])
+            yr_val = int(
+                r["year"].iloc[0] if isinstance(r["year"], pd.Series) else r["year"]
+            )
+
+            def rounded_value(column, stat="mean", digits=1):
+                value = r[(column, stat)]
+                return round(float(value), digits) if pd.notna(value) else None
+
+            pm25_count = int(r[("PM2.5 (ug/m3)", "count")])
+            pm10_count = int(r[("PM10 (ug/m3)", "count")])
+            no2_count = int(r[("NO2 (ug/m3)", "count")])
+            so2_count = int(r[("SO2 (ug/m3)", "count")])
+            co_count = int(r[("CO (mg/m3)", "count")])
+            ozone_count = int(r[("Ozone (ug/m3)", "count")])
+
+            is_partial = (
+                yr_val == int(city_archive_end.year)
+                and city_archive_end < pd.Timestamp(
+                    year=yr_val, month=12, day=31, hour=23
+                )
+            )
+
             y_series.append({
                 "year": yr_val,
-                "pm25_mean": round(float(r[("PM2.5 (ug/m3)", "mean")]), 1) if pd.notna(r[("PM2.5 (ug/m3)", "mean")]) else None,
-                "pm25_median": round(float(r[("PM2.5 (ug/m3)", "median")]), 1) if pd.notna(r[("PM2.5 (ug/m3)", "median")]) else None,
-                "readings": int(r[("PM2.5 (ug/m3)", "count")]),
-                "pm10_mean": round(float(r[("PM10 (ug/m3)", "mean")]), 1) if pd.notna(r[("PM10 (ug/m3)", "mean")]) else None,
-                "no2": round(float(r[("NO2 (ug/m3)", "mean")]), 1) if pd.notna(r[("NO2 (ug/m3)", "mean")]) else None,
-                "so2": round(float(r[("SO2 (ug/m3)", "mean")]), 1) if pd.notna(r[("SO2 (ug/m3)", "mean")]) else None,
+                "pm25_mean": rounded_value("PM2.5 (ug/m3)"),
+                "pm25_median": rounded_value("PM2.5 (ug/m3)", "median"),
+                "readings": pm25_count,
+                "pm25_readings": pm25_count,
+                "pm10_mean": rounded_value("PM10 (ug/m3)"),
+                "pm10_readings": pm10_count,
+                "no2": rounded_value("NO2 (ug/m3)"),
+                "no2_mean": rounded_value("NO2 (ug/m3)"),
+                "no2_readings": no2_count,
+                "so2": rounded_value("SO2 (ug/m3)"),
+                "so2_mean": rounded_value("SO2 (ug/m3)"),
+                "so2_readings": so2_count,
+                "co_mean": rounded_value("CO (mg/m3)", digits=2),
+                "co_readings": co_count,
+                "ozone_mean": rounded_value("Ozone (ug/m3)"),
+                "ozone_readings": ozone_count,
+                "stations": int(stations_by_year.loc[yr_val]),
+                "period_start": str(year_bounds.loc[yr_val, "min"]),
+                "period_end": str(year_bounds.loc[yr_val, "max"]),
+                "is_partial_year": bool(is_partial),
             })
+
         cache["yearly_trends"][city] = y_series
 
     # ── 3. Diurnal (24-Hour) Patterns ─────────────────────────────────────────
