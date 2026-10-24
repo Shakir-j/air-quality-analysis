@@ -330,42 +330,243 @@ def predict_from_simple_inputs(
 
 def predict_from_live_observation(live_data: dict[str, Any]) -> dict[str, Any]:
     """
-    Generate next-hour PM2.5 prediction using real-time or cached station observations.
-    Bridges live sensor inputs (PM2.5, co-pollutants, weather) to the trained XGBoost model.
+    Generate a one-hour-ahead PM2.5 prediction from a validated observation.
+
+    Meteorology is used only if its timestamp matches the CPCB observation
+    hour. CO values outside the trained input range are excluded rather than
+    converted using an unsupported unit assumption. Missing inputs are
+    imputed by predict_from_simple_inputs using training-set medians.
     """
     import datetime
+    import math
 
-    pollutants = live_data.get("pollutants", {})
-    weather = live_data.get("weather", {})
+    pollutants = live_data.get("pollutants") or {}
+    weather = live_data.get("weather") or {}
+    quality_flags: list[str] = []
 
-    current_pm25 = float(pollutants.get("PM2.5", live_data.get("pm25", 50.0)))
-    no2 = float(pollutants.get("NO2", live_data.get("no2"))) if ("NO2" in pollutants or "no2" in live_data) and pollutants.get("NO2", live_data.get("no2")) is not None else None
-    co = float(pollutants.get("CO", live_data.get("co"))) if ("CO" in pollutants or "co" in live_data) and pollutants.get("CO", live_data.get("co")) is not None else None
-    so2 = float(pollutants.get("SO2", live_data.get("so2"))) if ("SO2" in pollutants or "so2" in live_data) and pollutants.get("SO2", live_data.get("so2")) is not None else None
-    ozone = float(pollutants.get("Ozone", live_data.get("ozone"))) if ("Ozone" in pollutants or "ozone" in live_data) and pollutants.get("Ozone", live_data.get("ozone")) is not None else None
+    def parse_time(value: Any) -> Optional[datetime.datetime]:
+        if not value:
+            return None
 
-    temp = float(weather.get("temperature", live_data.get("temperature"))) if ("temperature" in weather or "temperature" in live_data) and weather.get("temperature", live_data.get("temperature")) is not None else None
-    rh = float(weather.get("relative_humidity", live_data.get("humidity"))) if ("relative_humidity" in weather or "humidity" in live_data) and weather.get("relative_humidity", live_data.get("humidity")) is not None else None
-    ws = float(weather.get("wind_speed", live_data.get("wind_speed"))) if ("wind_speed" in weather or "wind_speed" in live_data) and weather.get("wind_speed", live_data.get("wind_speed")) is not None else None
-
-    obs_time_str = live_data.get("observation_time", "")
-    obs_dt = None
-    if obs_time_str:
-        for fmt in ("%d-%m-%Y %H:%M:%S", "%Y-%m-%d %H:%M:%S", "%Y-%m-%dT%H:%M"):
+        text = str(value).strip()
+        for fmt in (
+            "%d-%m-%Y %H:%M:%S",
+            "%d-%m-%Y %H:%M",
+            "%Y-%m-%d %H:%M:%S",
+            "%Y-%m-%dT%H:%M:%S",
+            "%Y-%m-%dT%H:%M",
+        ):
             try:
-                obs_dt = datetime.datetime.strptime(obs_time_str, fmt)
-                break
-            except Exception:
+                return datetime.datetime.strptime(text, fmt)
+            except ValueError:
                 pass
 
+        try:
+            parsed = datetime.datetime.fromisoformat(text.replace("Z", "+00:00"))
+            if parsed.tzinfo is not None:
+                ist = datetime.timezone(datetime.timedelta(hours=5, minutes=30))
+                parsed = parsed.astimezone(ist).replace(tzinfo=None)
+            return parsed
+        except ValueError:
+            return None
+
+    def numeric(
+        value: Any,
+        *,
+        name: str,
+        minimum: float = 0.0,
+        maximum: float,
+    ) -> Optional[float]:
+        if value is None or isinstance(value, bool):
+            return None
+
+        try:
+            result = float(value)
+        except (ValueError, TypeError, OverflowError):
+            result = float("nan")
+
+        if not math.isfinite(result) or not minimum <= result <= maximum:
+            quality_flags.append(
+                f"{name} was excluded from model inputs because it was "
+                f"outside the accepted range {minimum:g} to {maximum:g}."
+            )
+            return None
+
+        return result
+
+    obs_time_str = live_data.get("observation_time")
+    obs_dt = parse_time(obs_time_str)
+
     if obs_dt is None:
-        obs_dt = datetime.datetime.now()
+        raise ValueError(
+            "Prediction requires a valid CPCB observation timestamp; "
+            "the current time will not be substituted."
+        )
+
+    raw_pm25 = pollutants.get("PM2.5")
+    if raw_pm25 is None:
+        raw_pm25 = live_data.get("pm25")
+
+    current_pm25 = numeric(
+        raw_pm25, name="PM2.5", minimum=0.0, maximum=500.0
+    )
+    if current_pm25 is None:
+        raise ValueError(
+            "Prediction requires a valid PM2.5 observation between 0 and "
+            "500 ug/m3. No synthetic current reading will be substituted."
+        )
+
+    # Validate co-pollutants against the ranges used by AIRWISE preprocessing.
+    def get_pollutant(
+        source_name: str,
+        alias: str,
+        maximum: float,
+    ) -> Optional[float]:
+        value = pollutants.get(source_name)
+        if value is None:
+            value = live_data.get(alias)
+
+        return numeric(value, name=source_name, maximum=maximum)
+
+    no2 = get_pollutant("NO2", "no2", 400.0)
+    co = get_pollutant("CO", "co", 50.0)
+    so2 = get_pollutant("SO2", "so2", 800.0)
+    ozone = get_pollutant("Ozone", "ozone", 400.0)
+
+    raw_co = pollutants.get("CO")
+    if raw_co is None:
+        raw_co = live_data.get("co")
+
+    if raw_co is None:
+        quality_flags.append(
+            "CO was unavailable; the training-set median is used."
+        )
+    else:
+        try:
+            co_number = float(raw_co)
+        except (ValueError, TypeError, OverflowError):
+            co_number = float("nan")
+
+        if not math.isfinite(co_number) or not 0 <= co_number <= 50:
+            # Replace the generic range warning with one clear CO-specific warning.
+            quality_flags = [
+                flag for flag in quality_flags
+                if not flag.startswith("CO was excluded from model inputs")
+            ]
+            quality_flags.append(
+                "The CPCB CO source value was excluded from model inputs "
+                "because it was outside the accepted 0 to 50 mg/m3 range. "
+                "No unit conversion was inferred; the training-set median "
+                "will be imputed."
+            )
+
+    # Only use weather returned for the same clock hour as the station reading.
+    weather_time_raw = weather.get("time") or live_data.get(
+        "weather_observation_time"
+    )
+    weather_dt = parse_time(weather_time_raw)
+
+    same_hour = (
+        weather_dt is not None
+        and weather_dt.replace(minute=0, second=0, microsecond=0)
+        == obs_dt.replace(minute=0, second=0, microsecond=0)
+    )
+
+    # Exclude live pressure because historical training records have
+    # inconsistent apparent units. Use the saved training median instead.
+    pressure_mmhg: Optional[float] = None
+    quality_flags.append(
+        "Live surface pressure is excluded because historical training "
+        "values have inconsistent apparent units; the saved training "
+        "median is used instead."
+    )
+
+    if same_hour:
+        temp = numeric(
+            weather.get("temperature"),
+            name="Temperature",
+            minimum=-10.0,
+            maximum=55.0,
+        )
+        rh = numeric(
+            weather.get("relative_humidity"),
+            name="Relative humidity",
+            minimum=0.0,
+            maximum=100.0,
+        )
+        ws = numeric(
+            weather.get("wind_speed"),
+            name="Wind speed",
+            minimum=0.0,
+            maximum=50.0,
+        )
+
+        # Pressure is intentionally omitted; the saved training median
+        # will be supplied by predict_from_simple_inputs().
+        if any(value is None for value in (temp, rh, ws)):
+            quality_flags.append(
+                "One or more time-matched weather features were unavailable "
+                "or outside the trained feature range; training-set medians "
+                "will be used for those features."
+            )
+
+        weather_observation_time = str(weather_time_raw)
+        weather_source = weather.get("source_name") or "Open-Meteo Weather API"
+
+    else:
+        temp = rh = ws = pressure_mmhg = None
+        weather_observation_time = None
+        weather_source = None
+        quality_flags.append(
+            "Weather was omitted because no exact observation-hour match "
+            "was available; training-set medians will be used for missing "
+            "weather features."
+        )
 
     target_dt = obs_dt + datetime.timedelta(hours=1)
     target_time_str = target_dt.strftime("%Y-%m-%d %H:%M:00")
 
+    # If the target hour was reached before the data was retrieved,
+    # disclose that this is not a forecast for a future hour.
+    retrieval_dt = parse_time(live_data.get("retrieval_time"))
+    if retrieval_dt is not None and target_dt <= retrieval_dt:
+        quality_flags.append(
+            "The one-hour target time is at or before the data retrieval "
+            "time. Treat this as an estimate for the hour after the "
+            "observation, not a forecast for a future hour."
+        )
+
+    # Lag 2 is one hour before the current observation because the
+    # prediction target is one hour ahead. Lag 3 is two hours before it.
+    lag_2h = numeric(
+        live_data.get("pm25_lag_2h"),
+        name="PM2.5 one hour before current observation",
+        minimum=0.0,
+        maximum=1000.0,
+    )
+    lag_3h = numeric(
+        live_data.get("pm25_lag_3h"),
+        name="PM2.5 two hours before current observation",
+        minimum=0.0,
+        maximum=1000.0,
+    )
+
+    missing_lags = []
+    if lag_2h is None:
+        missing_lags.append("the reading one hour before the current observation")
+    if lag_3h is None:
+        missing_lags.append("the reading two hours before the current observation")
+    if missing_lags:
+        quality_flags.append(
+            "Verified same-station PM2.5 history is not yet available for "
+            + " and ".join(missing_lags)
+            + "; missing lag features use the model's training-set imputation."
+        )
+
     forecast = predict_from_simple_inputs(
         pm25_current=current_pm25,
+        pm25_lag_2h=lag_2h,
+        pm25_lag_3h=lag_3h,
         hour=target_dt.hour,
         month=target_dt.month,
         day_of_week=target_dt.weekday(),
@@ -377,12 +578,16 @@ def predict_from_live_observation(live_data: dict[str, Any]) -> dict[str, Any]:
         relative_humidity=rh,
         wind_speed=ws,
         temperature=temp,
+        barometric_pressure=pressure_mmhg,
     )
 
     pred_pm25 = forecast["predicted_pm25"]
     delta = round(pred_pm25 - current_pm25, 1)
-
-    source = live_data.get("source_name") or live_data.get("data_source") or "CPCB Monitoring Network"
+    source = (
+        live_data.get("source_name")
+        or live_data.get("data_source")
+        or "CPCB Monitoring Network"
+    )
 
     forecast.update({
         "city": live_data.get("city", "Delhi"),
@@ -390,8 +595,10 @@ def predict_from_live_observation(live_data: dict[str, Any]) -> dict[str, Any]:
         "current_measured_pm25": current_pm25,
         "current_pm25": current_pm25,
         "delta_pm25": delta,
-        "delta_direction": "up" if delta > 0.5 else ("down" if delta < -0.5 else "stable"),
-        "observation_time": obs_time_str or obs_dt.strftime("%Y-%m-%d %H:%M:%S"),
+        "delta_direction": (
+            "up" if delta > 0.5 else ("down" if delta < -0.5 else "stable")
+        ),
+        "observation_time": obs_time_str,
         "target_forecast_time": target_time_str,
         "forecast_target_time": target_time_str,
         "forecast_horizon": "1-hour ahead (t+1)",
@@ -399,6 +606,9 @@ def predict_from_live_observation(live_data: dict[str, Any]) -> dict[str, Any]:
         "is_live_input": live_data.get("is_live", False),
         "data_source": source,
         "source_name": source,
+        "weather_source": weather_source,
+        "weather_observation_time": weather_observation_time,
+        "model_input_quality_flags": list(dict.fromkeys(quality_flags)),
     })
 
     return forecast

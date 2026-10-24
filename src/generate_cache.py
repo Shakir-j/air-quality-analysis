@@ -490,7 +490,15 @@ def compute_cache():
     display_names = ["PM2.5", "PM10", "NO2", "SO2", "CO", "Ozone", "Temp", "Humidity", "Wind"]
     cache["correlations"] = {
         "labels": display_names,
-        "matrix": [[float(corr_matrix.iloc[i, j]) if pd.notna(corr_matrix.iloc[i, j]) else 0.0 for j in range(len(display_names))] for i in range(len(display_names))],
+        "matrix": [
+            [
+                float(corr_matrix.iloc[i, j])
+                if pd.notna(corr_matrix.iloc[i, j])
+                else None
+                for j in range(len(display_names))
+            ]
+            for i in range(len(display_names))
+        ],
     }
 
     # ── 5. City x Pollutant Matrix ───────────────────────────────────────────
@@ -505,7 +513,7 @@ def compute_cache():
 
     # ── 6. Seasonal Patterns ─────────────────────────────────────────────────
     print("Computing seasonal patterns...")
-    season_names = {0: "Winter (Dec-Feb)", 1: "Pre-Monsoon (Mar-May)", 2: "Monsoon (Jun-Sep)", 3: "Post-Monsoon (Oct-Nov)"}
+    season_names = {0: "Winter", 1: "Pre-Monsoon", 2: "Monsoon", 3: "Post-Monsoon"}
     seas_grp = df.groupby(["season_num", "city"], observed=True)["PM2.5 (ug/m3)"].mean().unstack().round(1)
     cache["seasonal_patterns"] = {
         "seasons": [season_names.get(int(i), str(i)) for i in sorted(seas_grp.index.tolist())],
@@ -543,60 +551,73 @@ def compute_cache():
     diurnal_min_hour = int(nat_h.idxmin())
     diurnal_min_val = round(float(nat_h.min()), 1)
 
-    corr_val = float(corr_matrix.loc["PM2.5 (ug/m3)", "PM10 (ug/m3)"])
+    corr_raw = corr_matrix.loc["PM2.5 (ug/m3)", "PM10 (ug/m3)"]
+    corr_val = round(float(corr_raw), 2) if pd.notna(corr_raw) else None
 
     cache["insights"] = {
         "hotspots": {
-            "title": "Geographic Divide: Northern Plains vs Peninsular Coastal Cities",
+            "title": "Highest and Lowest City PM2.5 Averages",
             "highest_city": highest_city,
             "highest_pm25": highest_val,
             "lowest_city": cleanest_city,
             "lowest_pm25": cleanest_val,
             "ratio": round(highest_val / cleanest_val, 1) if cleanest_val > 0 else 1.0,
             "summary": (
-                f"Across 130 monitoring stations from 2010 to 2023, cities in the Indo-Gangetic Plains "
-                f"({highest_city}: {highest_val} µg/m³) consistently experience higher particulate burdens "
-                f"than peninsular coastal cities ({cleanest_city}: {cleanest_val} µg/m³), representing a "
-                f"{round(highest_val / cleanest_val, 1)}x difference driven by landlocked topography, meteorological stagnation, and dense combustion sources."
+                f"In the processed historical records, {highest_city} has the highest "
+                f"city-average PM2.5 ({highest_val} µg/m³), while {cleanest_city} has "
+                f"the lowest ({cleanest_val} µg/m³). These averages describe the available "
+                "records; station coverage may differ between cities, and this comparison "
+                "does not establish why the cities differ."
             ),
         },
         "seasonal": {
-            "title": "Winter Inversion Surge: November to January Peak",
+            "title": "Winter–Monsoon PM2.5 Comparison",
             "winter_pm25": winter_val,
             "monsoon_pm25": monsoon_val,
             "ratio": season_ratio,
             "summary": (
-                f"Particulate concentrations surge {season_ratio}x during winter (average {winter_val} µg/m³) "
-                f"compared to the monsoon period ({monsoon_val} µg/m³). Lower boundary layer heights, calm winds, "
-                f"and thermal temperature inversions trap surface emissions, whereas monsoon precipitation provides natural wet deposition."
+                f"The processed records show a winter (December–February) mean of "
+                f"{winter_val} µg/m³ and a monsoon (June–September) mean of "
+                f"{monsoon_val} µg/m³ (winter-to-monsoon ratio: {season_ratio}x). "
+                "This is a descriptive comparison; this calculation does not isolate "
+                "the effects of weather, emissions, or other contributing factors."
             ),
         },
         "diurnal": {
-            "title": "Daily Commuter Transit Waves",
+            "title": "National Daily PM2.5 Pattern",
             "peak_hour": diurnal_max_hour,
             "peak_pm25": diurnal_max_val,
             "trough_hour": diurnal_min_hour,
             "trough_pm25": diurnal_min_val,
             "summary": (
-                f"Nationwide hourly tracking indicates pollution peaks late at night and during morning commute hours ({diurnal_max_hour}:00: {diurnal_max_val} µg/m³). "
-                f"The lowest average levels occur in mid-afternoon ({diurnal_min_hour}:00: {diurnal_min_val} µg/m³), when solar radiation enhances convective mixing."
+                f"In the processed historical data, the national hourly mean is highest "
+                f"at {diurnal_max_hour}:00 ({diurnal_max_val} µg/m³) and lowest at "
+                f"{diurnal_min_hour}:00 ({diurnal_min_val} µg/m³). This describes the "
+                "observed time-of-day pattern; it does not establish traffic or other causes."
             ),
         },
         "relationships": {
-            "title": "Strong Co-Pollutant Coupling",
+            "title": "Pollutant Correlations in Historical Data",
             "pm25_pm10_corr": corr_val,
             "summary": (
-                f"PM2.5 and PM10 exhibit an exceptionally strong correlation (r = {corr_val}), indicating shared combustion "
-                f"and dust resuspension origins. In addition, nitrogen dioxide (NO2) and carbon monoxide (CO) rise in tandem during rush hours, "
-                f"confirming vehicular exhaust as a dominant mutual contributor."
+                (
+                    f"Across available pooled historical observations, the Pearson "
+                    f"correlation between PM2.5 and PM10 is r = {corr_val:.2f}. "
+                    if corr_val is not None
+                    else "A PM2.5–PM10 correlation could not be calculated from the available records. "
+                )
+                + "Correlation describes association, not cause and effect; these "
+                "statistics alone do not identify emission sources or prove a traffic effect."
             ),
         },
         "extreme_episodes": {
-            "title": "Historical Severe Smog Episodes",
+            "title": "Highest Historical City-Day PM2.5 Means",
             "episodes": episodes_list,
             "summary": (
-                f"The highest historical 24-hour PM2.5 concentrations exceeded 400 µg/m³ (over 6x the CPCB 24h standard of 60 µg/m³), "
-                f"most commonly recorded in Delhi and Patna during late autumn and early winter post-harvest windows."
+                "The table ranks city-day mean PM2.5 across available historical records. "
+                "Each city-day includes at least 12 readings pooled across available station "
+                "records. These values are not necessarily 24 continuous hourly readings "
+                "from one station or official 24-hour station averages."
             ),
         },
     }

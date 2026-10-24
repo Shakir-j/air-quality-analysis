@@ -473,3 +473,26 @@ This is an educational and analytical project. It does not replace environmental
 **GitHub:** https://github.com/Shakir-j/air-quality-analysis
 
 Contributions and further development should preserve the distinction between historical measurements, model predictions, pollutant sub-indices and full composite AQI values.
+
+## Optional Live CPCB Telemetry
+
+AIRWISE supports historical analysis and manual predictions without live mode. Live telemetry requires internet access and a valid CPCB API credential configured locally.
+
+### Run with live data enabled (Windows PowerShell)
+
+From the project root, run:
+
+```powershell
+$env:AIRWISE_ENABLE_LIVE_DATA = "1"
+.\.venv\Scripts\python.exe server.py
+```
+
+Keep the terminal open while the server runs. The environment setting applies to that PowerShell session.
+
+Keep credentials in the ignored local `.env.local` file. Never commit credentials to GitHub.
+
+Validated PM2.5 observations are saved locally in `data/cache/live_pm25_history.json`, which is excluded from Git. Readings are separated by station and grouped by clock hour. Missing earlier-hour readings remain unavailable rather than being fabricated.
+
+### Verification
+
+The development test suite passed 54 tests on 24 October 2026. Browser checks covered Home, Air Quality, Explore, Insights and Prediction, including a live CPCB prediction. Local smoke checks returned HTTP 200 for `/`, `/api/insights` and `/openapi.json`.

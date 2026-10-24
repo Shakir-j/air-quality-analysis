@@ -10,7 +10,10 @@ Unit tests for the live air quality telemetry integration:
 """
 
 import time
+import datetime as dt
 import pytest
+
+_MOCK_CPCB_TIMESTAMP = dt.datetime.now().strftime("%d-%m-%Y %H:%M:%S")
 from unittest.mock import patch, MagicMock
 
 from src.live_data import (
@@ -70,26 +73,62 @@ def test_compute_cpcb_subindex():
     assert cat == "Severe"
 
 
-def test_live_data_fallback_when_network_fails():
-    """Verify that when network calls fail, get_current_air_quality falls back safely."""
+def test_live_data_fallback_when_live_mode_disabled(monkeypatch):
+    """Verify that disabled live mode uses the archive without external requests."""
+    monkeypatch.setenv("AIRWISE_ENABLE_LIVE_DATA", "0")
     # Clear cache for isolated test
     _LIVE_CACHE.pop("Bengaluru", None)
 
     with patch("urllib.request.urlopen") as mock_url:
         mock_url.side_effect = Exception("Simulated network timeout")
         res = get_current_air_quality("Bengaluru")
+        assert mock_url.call_count == 0
 
     assert res["city"] == "Bengaluru"
     assert res["is_live"] is False
     assert "historical" in res["source_name"].lower() or "baseline" in res["source_name"].lower()
     assert res["pm25"] is not None
+    assert res["temperature"] is None
+    assert res["humidity"] is None
+    assert res["weather"]["temperature"] is None
     assert res["aqi"] is not None
     assert res["category"] in ["Good", "Satisfactory", "Moderate", "Poor", "Very Poor", "Severe"]
 
 
+
+def test_live_data_failure_is_cached_for_short_ttl(monkeypatch):
+    """A failed live lookup falls back and avoids repeating the request briefly."""
+    monkeypatch.setenv("AIRWISE_ENABLE_LIVE_DATA", "1")
+    monkeypatch.setenv("DATA_GOV_IN_API_KEY", "unit-test-key")
+    _LIVE_CACHE.pop("Bengaluru", None)
+
+    from server import get_cache
+    historical = get_cache()
+
+    try:
+        with (
+            patch("src.live_data._fetch_live_cpcb_city", return_value=None) as cpcb_fetch,
+            patch("src.live_data._fetch_live_meteorology") as weather_fetch,
+        ):
+            first = get_current_air_quality(
+                "Bengaluru", historical_cache=historical
+            )
+            second = get_current_air_quality(
+                "Bengaluru", historical_cache=historical
+            )
+
+        assert first["is_live"] is False
+        assert second["is_live"] is False
+        assert first["pm25"] is not None
+        assert second["pm25"] is not None
+        assert cpcb_fetch.call_count == 1
+        weather_fetch.assert_not_called()
+    finally:
+        _LIVE_CACHE.pop("Bengaluru", None)
 def test_live_data_cpcb_success_mock(monkeypatch):
     """Verify parsing when data.gov.in returns valid CPCB CAAQMS records."""
     monkeypatch.setenv("AIRWISE_ENABLE_LIVE_DATA", "1")
+    monkeypatch.setenv("DATA_GOV_IN_API_KEY", "unit-test-key")
     mock_response_data = {
         "records": [
             {
@@ -97,21 +136,35 @@ def test_live_data_cpcb_success_mock(monkeypatch):
                 "station": "Anand Vihar, Delhi - DPCC",
                 "pollutant_id": "PM2.5",
                 "pollutant_avg": "135.4",
-                "last_update": "19-10-2026 15:00:00",
+                "last_update": _MOCK_CPCB_TIMESTAMP,
             },
             {
                 "city": "Delhi",
                 "station": "Anand Vihar, Delhi - DPCC",
                 "pollutant_id": "PM10",
                 "pollutant_avg": "210.0",
-                "last_update": "19-10-2026 15:00:00",
+                "last_update": _MOCK_CPCB_TIMESTAMP,
             },
             {
                 "city": "Delhi",
                 "station": "Anand Vihar, Delhi - DPCC",
                 "pollutant_id": "NO2",
                 "pollutant_avg": "45.2",
-                "last_update": "19-10-2026 15:00:00",
+                "last_update": _MOCK_CPCB_TIMESTAMP,
+            },
+            {
+                "city": "Delhi",
+                "station": "Anand Vihar, Delhi - DPCC",
+                "pollutant_id": "SO2",
+                "pollutant_avg": "NA",
+                "last_update": _MOCK_CPCB_TIMESTAMP,
+            },
+            {
+                "city": "Delhi",
+                "station": "Bawana, Delhi - DPCC",
+                "pollutant_id": "PM10",
+                "pollutant_avg": "999.0",
+                "last_update": _MOCK_CPCB_TIMESTAMP,
             },
         ]
     }
@@ -136,6 +189,9 @@ def test_live_data_cpcb_success_mock(monkeypatch):
     assert res["pm25"] == 135.4
     assert res["pm10"] == 210.0
     assert res["no2"] == 45.2
+    assert res["pm10"] == 210.0  # Do not take PM10 from Bawana.
+    assert res["so2"] is None  # "NA" is missing, not zero.
+    assert "SO2" not in res["pollutants"]
     assert "Anand Vihar" in res["station_name"]
     assert res["category"] == "Very Poor"
     assert res["aqi"] > 300.0

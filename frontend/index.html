@@ -42,7 +42,7 @@
 
       <div class="nav-status-badge">
         <span class="status-indicator"></span>
-        <span class="status-text">CPCB Historical Network</span>
+        <span class="status-text">CPCB Monitoring Network</span>
       </div>
 
       <!-- Mobile hamburger button -->
@@ -419,7 +419,7 @@
           <div class="story-layout">
             <div class="story-narrative full-width">
               <span class="story-tag">Historical Records</span>
-              <h2 class="story-title">Worst Historical Smog Episodes</h2>
+              <h2 class="story-title">Highest Historical City-Day PM2.5 Means</h2>
               <p class="story-body" id="story-episodes-text">
                 Analysis of peak 24-hour PM2.5 concentrations recorded across the monitoring network.
               </p>
@@ -491,15 +491,15 @@
                 </div>
 
                 <div class="form-group">
-                  <label for="pred-pm25-lag2" class="form-label">PM2.5 2 Hours Ago (µg/m³)</label>
-                  <input type="number" id="pred-pm25-lag2" class="form-input" min="0" max="1000" step="any" value="115.0">
-                  <span class="input-hint">Observation at t-2h</span>
+                  <label for="pred-pm25-lag2" class="form-label">PM2.5 1 Hour Before Current Reading (µg/m³)</label>
+                  <input type="number" id="pred-pm25-lag2" class="form-input" min="0" max="1000" step="any" value="">
+                  <span class="input-hint">Same-station reading at forecast target t-2h. Leave blank if unavailable.</span>
                 </div>
 
                 <div class="form-group">
-                  <label for="pred-pm25-lag3" class="form-label">PM2.5 3 Hours Ago (µg/m³)</label>
-                  <input type="number" id="pred-pm25-lag3" class="form-input" min="0" max="1000" step="any" value="110.0">
-                  <span class="input-hint">Observation at t-3h</span>
+                  <label for="pred-pm25-lag3" class="form-label">PM2.5 2 Hours Before Current Reading (µg/m³)</label>
+                  <input type="number" id="pred-pm25-lag3" class="form-input" min="0" max="1000" step="any" value="">
+                  <span class="input-hint">Same-station reading at forecast target t-3h. Leave blank if unavailable.</span>
                 </div>
 
                 <div class="form-group">
@@ -524,17 +524,20 @@
 
                 <div class="form-group">
                   <label for="pred-temp" class="form-label">Temperature (°C)</label>
-                  <input type="number" id="pred-temp" class="form-input" min="-20" max="60" step="any" value="22.0">
+                  <input type="number" id="pred-temp" class="form-input" min="-20" max="60" step="any" value="">
+                  <span class="input-hint">Optional; auto-filled only when matching weather data is available.</span>
                 </div>
 
                 <div class="form-group">
                   <label for="pred-rh" class="form-label">Relative Humidity (%)</label>
-                  <input type="number" id="pred-rh" class="form-input" min="0" max="100" step="any" value="65">
+                  <input type="number" id="pred-rh" class="form-input" min="0" max="100" step="any" value="">
+                  <span class="input-hint">Optional; auto-filled only when matching weather data is available.</span>
                 </div>
 
                 <div class="form-group">
                   <label for="pred-ws" class="form-label">Wind Speed (m/s)</label>
-                  <input type="number" id="pred-ws" class="form-input" min="0" max="30" step="any" value="1.5">
+                  <input type="number" id="pred-ws" class="form-input" min="0" max="30" step="any" value="">
+                  <span class="input-hint">Optional; auto-filled only when matching weather data is available.</span>
                 </div>
 
                 <div class="form-group">

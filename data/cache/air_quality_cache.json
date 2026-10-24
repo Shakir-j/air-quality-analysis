@@ -90302,10 +90302,10 @@
   },
   "seasonal_patterns": {
     "seasons": [
-      "Winter (Dec-Feb)",
-      "Pre-Monsoon (Mar-May)",
-      "Monsoon (Jun-Sep)",
-      "Post-Monsoon (Oct-Nov)"
+      "Winter",
+      "Pre-Monsoon",
+      "Monsoon",
+      "Post-Monsoon"
     ],
     "cities": [
       "Ahmedabad",
@@ -90372,36 +90372,36 @@
   },
   "insights": {
     "hotspots": {
-      "title": "Geographic Divide: Northern Plains vs Peninsular Coastal Cities",
+      "title": "Highest and Lowest City PM2.5 Averages",
       "highest_city": "Delhi",
       "highest_pm25": 108.6,
       "lowest_city": "Bengaluru",
       "lowest_pm25": 33.9,
       "ratio": 3.2,
-      "summary": "Across 130 monitoring stations from 2010 to 2023, cities in the Indo-Gangetic Plains (Delhi: 108.6 µg/m³) consistently experience higher particulate burdens than peninsular coastal cities (Bengaluru: 33.9 µg/m³), representing a 3.2x difference driven by landlocked topography, meteorological stagnation, and dense combustion sources."
+      "summary": "In the processed historical records, Delhi has the highest city-average PM2.5 (108.6 µg/m³), while Bengaluru has the lowest (33.9 µg/m³). These averages describe the available records; station coverage may differ between cities, and this comparison does not establish why the cities differ."
     },
     "seasonal": {
-      "title": "Winter Inversion Surge: November to January Peak",
+      "title": "Winter–Monsoon PM2.5 Comparison",
       "winter_pm25": 118.3,
       "monsoon_pm25": 35.7,
       "ratio": 3.31,
-      "summary": "Particulate concentrations surge 3.31x during winter (average 118.3 µg/m³) compared to the monsoon period (35.7 µg/m³). Lower boundary layer heights, calm winds, and thermal temperature inversions trap surface emissions, whereas monsoon precipitation provides natural wet deposition."
+      "summary": "The processed records show a winter (December–February) mean of 118.3 µg/m³ and a monsoon (June–September) mean of 35.7 µg/m³ (winter-to-monsoon ratio: 3.31x). This is a descriptive comparison; this calculation does not isolate the effects of weather, emissions, or other contributing factors."
     },
     "diurnal": {
-      "title": "Daily Commuter Transit Waves",
+      "title": "National Daily PM2.5 Pattern",
       "peak_hour": 23,
       "peak_pm25": 90.4,
       "trough_hour": 16,
       "trough_pm25": 56.9,
-      "summary": "Nationwide hourly tracking indicates pollution peaks late at night and during morning commute hours (23:00: 90.4 µg/m³). The lowest average levels occur in mid-afternoon (16:00: 56.9 µg/m³), when solar radiation enhances convective mixing."
+      "summary": "In the processed historical data, the national hourly mean is highest at 23:00 (90.4 µg/m³) and lowest at 16:00 (56.9 µg/m³). This describes the observed time-of-day pattern; it does not establish traffic or other causes."
     },
     "relationships": {
-      "title": "Strong Co-Pollutant Coupling",
+      "title": "Pollutant Correlations in Historical Data",
       "pm25_pm10_corr": 0.85,
-      "summary": "PM2.5 and PM10 exhibit an exceptionally strong correlation (r = 0.85), indicating shared combustion and dust resuspension origins. In addition, nitrogen dioxide (NO2) and carbon monoxide (CO) rise in tandem during rush hours, confirming vehicular exhaust as a dominant mutual contributor."
+      "summary": "Across available pooled historical observations, the Pearson correlation between PM2.5 and PM10 is r = 0.85. Correlation describes association, not cause and effect; these statistics alone do not identify emission sources or prove a traffic effect."
     },
     "extreme_episodes": {
-      "title": "Historical Severe Smog Episodes",
+      "title": "Highest Historical City-Day PM2.5 Means",
       "episodes": [
         {
           "city": "Delhi",
@@ -90434,7 +90434,7 @@
           "readings": 24
         }
       ],
-      "summary": "The highest historical 24-hour PM2.5 concentrations exceeded 400 µg/m³ (over 6x the CPCB 24h standard of 60 µg/m³), most commonly recorded in Delhi and Patna during late autumn and early winter post-harvest windows."
+      "summary": "The table ranks city-day mean PM2.5 across available historical records. Each city-day includes at least 12 readings pooled across available station records. These values are not necessarily 24 continuous hourly readings from one station or official 24-hour station averages."
     }
   }
 }

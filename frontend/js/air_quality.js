@@ -367,6 +367,9 @@ function renderPollutantCards(data) {
             ${isLive ? "Latest live reading" : "Last archived hourly reading"}:
             <strong>${latestText}</strong>
             ${observedAt ? `<br>Observed: ${observedAt}` : ""}
+            ${isLive && p.name === "CO" && latestValue !== null && latestValue > 50
+              ? `<div role="note" style="font-size:11px;color:var(--aqi-poor, #f59e0b);margin-top:6px;line-height:1.4;">Outside AIRWISE's accepted prediction input range; excluded from model inputs.</div>`
+              : ""}
           </div>
         </div>
 
@@ -740,77 +743,32 @@ function switchHistoricalView(mode) {
  */
 function sendToPrediction() {
   const d = window._aqCurrentData;
-  if (!d) return;
+  if (!d) {
+    console.error("AIRWISE: No Air Quality data is available to transfer.");
+    return;
+  }
 
-  // Navigate to Prediction tab first
-  if (typeof navigateTo === "function") navigateTo("prediction");
+  if (typeof navigateTo === "function") {
+    navigateTo("prediction");
+  }
 
-  // Small delay to let the section render before filling fields
-  setTimeout(() => {
-    const setVal = (id, val) => {
-      const el = document.getElementById(id);
-      if (el && val !== null && val !== undefined) el.value = val;
-    };
-
-    // City
-    setVal("pred-city", d.city);
-
-    // PM2.5 — current + reasonable lag estimates (±5% spread)
-    if (d.pm25 !== null) {
-      setVal("pred-pm25",      parseFloat(d.pm25).toFixed(1));
-      setVal("pred-pm25-lag2", (d.pm25 * 1.04).toFixed(1));  // 2h ago ~4% higher
-      setVal("pred-pm25-lag3", (d.pm25 * 1.07).toFixed(1));  // 3h ago ~7% higher
+  window.setTimeout(async () => {
+    const citySelect = document.getElementById("pred-city");
+    if (citySelect && d.city) {
+      citySelect.value = d.city;
     }
 
-    // Pollutant gases
-    if (d.no2   !== null) setVal("pred-no2",   parseFloat(d.no2).toFixed(1));
-    if (d.co    !== null) setVal("pred-co",    parseFloat(d.co).toFixed(2));
-    if (d.so2   !== null) setVal("pred-so2",   parseFloat(d.so2).toFixed(1));
-    if (d.ozone !== null) setVal("pred-ozone", parseFloat(d.ozone).toFixed(1));
-
-    // Set month and hour to current real time
-    const now = new Date();
-    const currentMonth = now.getMonth() + 1; // JS months are 0-indexed
-    const airwiseForecastTargetTime = new Date(now.getTime() + 3600000);
-    setVal("pred-month", airwiseForecastTargetTime.getMonth() + 1);
-    setVal("pred-hour", airwiseForecastTargetTime.getHours());
-    setVal("pred-weekend", (airwiseForecastTargetTime.getDay() + 6) % 7);
-
-    // Auto-fill Temperature, Humidity, and Wind Speed based on City & Season
-    const climateLookup = {
-      "Delhi": { "winter": { temp: 15, rh: 65, ws: 1.5 }, "summer": { temp: 35, rh: 30, ws: 3.0 }, "monsoon": { temp: 30, rh: 75, ws: 2.5 }, "post_monsoon": { temp: 25, rh: 55, ws: 1.8 } },
-      "Mumbai": { "winter": { temp: 26, rh: 60, ws: 3.5 }, "summer": { temp: 30, rh: 65, ws: 4.0 }, "monsoon": { temp: 28, rh: 85, ws: 5.0 }, "post_monsoon": { temp: 29, rh: 70, ws: 3.8 } },
-      "Chennai": { "winter": { temp: 25, rh: 70, ws: 3.5 }, "summer": { temp: 32, rh: 65, ws: 4.5 }, "monsoon": { temp: 30, rh: 70, ws: 4.0 }, "post_monsoon": { temp: 28, rh: 75, ws: 3.2 } },
-      "Bengaluru": { "winter": { temp: 20, rh: 55, ws: 2.5 }, "summer": { temp: 27, rh: 40, ws: 3.0 }, "monsoon": { temp: 23, rh: 75, ws: 4.5 }, "post_monsoon": { temp: 22, rh: 65, ws: 3.0 } },
-      "Kolkata": { "winter": { temp: 18, rh: 60, ws: 1.5 }, "summer": { temp: 32, rh: 55, ws: 3.5 }, "monsoon": { temp: 29, rh: 80, ws: 2.5 }, "post_monsoon": { temp: 26, rh: 70, ws: 1.8 } },
-      "Lucknow": { "winter": { temp: 15, rh: 70, ws: 1.2 }, "summer": { temp: 34, rh: 25, ws: 2.5 }, "monsoon": { temp: 29, rh: 80, ws: 2.0 }, "post_monsoon": { temp: 24, rh: 60, ws: 1.5 } },
-      "Ahmedabad": { "winter": { temp: 20, rh: 45, ws: 2.0 }, "summer": { temp: 35, rh: 30, ws: 3.5 }, "monsoon": { temp: 30, rh: 75, ws: 4.0 }, "post_monsoon": { temp: 28, rh: 50, ws: 2.5 } },
-      "Hyderabad": { "winter": { temp: 22, rh: 50, ws: 2.5 }, "summer": { temp: 33, rh: 35, ws: 3.5 }, "monsoon": { temp: 27, rh: 75, ws: 4.0 }, "post_monsoon": { temp: 25, rh: 60, ws: 3.0 } },
-      "Patna": { "winter": { temp: 16, rh: 70, ws: 1.5 }, "summer": { temp: 33, rh: 30, ws: 2.8 }, "monsoon": { temp: 29, rh: 82, ws: 2.2 }, "post_monsoon": { temp: 25, rh: 65, ws: 1.5 } },
-      "Pune": { "winter": { temp: 20, rh: 50, ws: 2.0 }, "summer": { temp: 31, rh: 35, ws: 3.5 }, "monsoon": { temp: 25, rh: 80, ws: 4.5 }, "post_monsoon": { temp: 24, rh: 60, ws: 2.5 } }
-    };
-
-    let season = "winter";
-    if (currentMonth >= 3 && currentMonth <= 5) season = "summer";
-    else if (currentMonth >= 6 && currentMonth <= 9) season = "monsoon";
-    else if (currentMonth >= 10 && currentMonth <= 11) season = "post_monsoon";
-
-    const cityClimate = climateLookup[d.city] || climateLookup["Delhi"];
-    const weather = cityClimate[season];
-
-    setVal("pred-temp", weather.temp);
-    setVal("pred-rh", weather.rh);
-    setVal("pred-ws", weather.ws);
-
-    // Flash a brief highlight on the form to show it was filled
-    const form = document.getElementById("prediction-form");
-    if (form) {
-      form.style.transition = "box-shadow 0.3s ease";
-      form.style.boxShadow = "0 0 0 3px rgba(45, 106, 79, 0.35)";
-      setTimeout(() => { form.style.boxShadow = ""; }, 1200);
+    if (typeof loadLivePredictionInputs !== "function") {
+      console.error("AIRWISE: Telemetry loader is unavailable.");
+      alert("Could not load station telemetry. Please refresh AIRWISE and try again.");
+      return;
     }
 
-    // Auto-run the prediction
-    if (typeof submitPredictionForm === "function") submitPredictionForm();
-  }, 120);
+    try {
+      await loadLivePredictionInputs();
+    } catch (error) {
+      console.error("AIRWISE: Failed to transfer station telemetry.", error);
+      alert("Could not load station telemetry. Please check the server and try again.");
+    }
+  }, 150);
 }

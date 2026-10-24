@@ -55,3 +55,4 @@ secrets.toml
 .env.*
 !.env.example
 /models/candidate_validation_*/
+data/cache/live_pm25_history.json
