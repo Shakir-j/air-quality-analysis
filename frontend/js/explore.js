@@ -63,15 +63,15 @@ async function renderExploreCityComparison(pollutant) {
   if (!data || !data.cities) return;
 
   const cities = data.cities.map((c) => c.city);
-  const values = data.cities.map((c) => c.pollutant_avg || c.mean_pm25);
-  const colors = data.cities.map((c) => c.color);
+  const values = data.cities.map((c) => c.pollutant_avg ?? null);
+  const unit = pollutant === "CO" ? "mg/m³" : "µg/m³";
 
   const trace = {
     x: cities,
     y: values,
     type: "bar",
-    marker: { color: colors },
-    hovertemplate: "%{x}: <b>%{y:.1f} µg/m³</b><extra></extra>",
+    marker: { color: "#38bdf8" },
+    hovertemplate: `%{x}: <b>%{y:.1f} ${unit}</b><extra></extra>`,
   };
 
   const layout = {
@@ -79,7 +79,7 @@ async function renderExploreCityComparison(pollutant) {
     height: 480,
     showlegend: false,
     xaxis: { ...PLOTLY_DARK.xaxis, type: "category" },
-    yaxis: { ...PLOTLY_DARK.yaxis, title: `${pollutant} Mean Concentration (µg/m³)` },
+    yaxis: { ...PLOTLY_DARK.yaxis, title: `${pollutant} Mean Concentration (${unit})` },
   };
 
   Plotly.newPlot("explore-main-chart", [trace], layout, PLOTLY_CONFIG);
@@ -90,6 +90,16 @@ async function renderExploreTimeTrend(pollutant) {
   const cities = ["Delhi", "Mumbai", "Bengaluru", "Kolkata", "Chennai"];
   const traces = [];
   const palette = ["#ef4444", "#38bdf8", "#10b981", "#f59e0b", "#a855f7"];
+  const trendFieldByPollutant = {
+    "PM2.5": "pm25_mean",
+    PM10: "pm10",
+    NO2: "no2",
+    SO2: "so2",
+    CO: "co",
+    Ozone: "ozone",
+  };
+  const valueKey = trendFieldByPollutant[pollutant];
+  const unit = pollutant === "CO" ? "mg/m³" : "µg/m³";
 
   for (let i = 0; i < cities.length; i++) {
     const c = cities[i];
@@ -97,16 +107,14 @@ async function renderExploreTimeTrend(pollutant) {
     if (res && res.monthly_trend) {
       traces.push({
         x: res.monthly_trend.map((d) => d.period),
-        y: res.monthly_trend.map((d) => {
-          if (pollutant === "PM10") return d.pm10;
-          if (pollutant === "NO2") return d.no2;
-          return d.pm25_mean;
-        }),
+        y: res.monthly_trend.map((d) =>
+          valueKey ? (d[valueKey] ?? null) : null
+        ),
         type: "scatter",
         mode: "lines",
         name: c,
         line: { color: palette[i % palette.length], width: 2 },
-        hovertemplate: `${c} %{x}: <b>%{y:.1f} µg/m³</b><extra></extra>`,
+        hovertemplate: `${c} %{x}: <b>%{y:.1f} ${unit}</b><extra></extra>`,
       });
     }
   }
@@ -116,7 +124,7 @@ async function renderExploreTimeTrend(pollutant) {
     height: 480,
     showlegend: true,
     legend: { orientation: "h", y: 1.1, font: { color: "#94a3b8" } },
-    yaxis: { ...PLOTLY_DARK.yaxis, title: `${pollutant} (µg/m³)` },
+    yaxis: { ...PLOTLY_DARK.yaxis, title: `${pollutant} (${unit})` },
   };
 
   Plotly.newPlot("explore-main-chart", traces, layout, PLOTLY_CONFIG);
@@ -140,8 +148,12 @@ async function renderExploreCorrelations() {
       [0.75, "#f16913"],
       [1.0, "#d94801"],
     ],
-    zmin: -0.5,
-    zmax: 1.0,
+    zmin: -1,
+    zmax: 1,
+    colorbar: {
+      title: { text: "Pearson r" },
+      tickvals: [-1, -0.5, 0, 0.5, 1],
+    },
     hovertemplate: "%{x} × %{y}: <b>r = %{z:.2f}</b><extra></extra>",
   };
 
@@ -257,8 +269,12 @@ async function loadSecondaryExploreCharts() {
       y: pollSubset,
       type: "heatmap",
       colorscale: "Tealrose",
-      zmin: 0,
+      zmin: -1,
       zmax: 1,
+      colorbar: {
+        title: { text: "Pearson r" },
+        tickvals: [-1, -0.5, 0, 0.5, 1],
+      },
       hovertemplate: "%{x} × %{y}: <b>r = %{z:.2f}</b><extra></extra>",
     };
 

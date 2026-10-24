@@ -229,37 +229,42 @@ function renderCorrelationInsight(relationships, correlations) {
   if (textEl)  textEl.textContent  = relationships.summary;
 
   // Extract real r-values from the correlation matrix returned by the API
-  let pm25_pm10  = relationships.pm25_pm10_corr;
+  let pm25_pm10 = Number.isFinite(relationships.pm25_pm10_corr) ? relationships.pm25_pm10_corr : null;
   let no2_co     = null;
   let pm25_no2   = null;
   let pm25_so2   = null;
   let pm25_ozone = null;
 
-  if (correlations && correlations.labels && correlations.matrix) {
+  if (correlations && Array.isArray(correlations.labels) && Array.isArray(correlations.matrix)) {
     const lbl = correlations.labels;
     const mat = correlations.matrix;
     const r = (a, b) => {
-      const ai = lbl.indexOf(a), bi = lbl.indexOf(b);
-      return ai >= 0 && bi >= 0 ? Math.round(mat[ai][bi] * 100) / 100 : null;
+      const ai = lbl.indexOf(a);
+      const bi = lbl.indexOf(b);
+      if (ai < 0 || bi < 0) return null;
+      const value = mat[ai]?.[bi];
+      return typeof value === "number" && Number.isFinite(value)
+        ? Math.round(value * 100) / 100
+        : null;
     };
-    pm25_pm10  = r("PM2.5", "PM10")  ?? pm25_pm10;
-    no2_co     = r("NO2",  "CO")     ?? 0.62;
-    pm25_no2   = r("PM2.5", "NO2")   ?? 0.54;
-    pm25_so2   = r("PM2.5", "SO2")   ?? 0.38;
-    pm25_ozone = r("PM2.5", "Ozone") ?? -0.18;
-  } else {
-    no2_co = 0.62; pm25_no2 = 0.54; pm25_so2 = 0.38; pm25_ozone = -0.18;
+    pm25_pm10 = r("PM2.5", "PM10") ?? pm25_pm10;
+    no2_co = r("NO2", "CO");
+    pm25_no2 = r("PM2.5", "NO2");
+    pm25_so2 = r("PM2.5", "SO2");
+    pm25_ozone = r("PM2.5", "Ozone");
   }
+
+  const formatCorrelation = (value) => Number.isFinite(value) ? value.toFixed(2) : "Unavailable";
 
   if (statsEl) {
     statsEl.innerHTML = `
       <div class="stat-item">
-        <span class="stat-number" style="color: var(--accent-cyan);">r = ${pm25_pm10}</span>
+        <span class="stat-number" style="color: var(--accent-cyan);">r = ${formatCorrelation(pm25_pm10)}</span>
         <span class="stat-desc">PM2.5 / PM10 Coupling</span>
       </div>
       <div class="stat-item">
-        <span class="stat-number" style="color: var(--accent-teal-light);">r = ${no2_co}</span>
-        <span class="stat-desc">NO₂ / CO Traffic Coupling</span>
+        <span class="stat-number" style="color: var(--accent-teal-light);">r = ${formatCorrelation(no2_co)}</span>
+        <span class="stat-desc">NO₂ / CO Correlation</span>
       </div>
     `;
   }
@@ -280,7 +285,7 @@ function renderCorrelationInsight(relationships, correlations) {
     height: 260,
     margin: { l: 50, r: 20, t: 20, b: 60 },
     xaxis: { ...PLOTLY_DARK.xaxis, type: "category" },
-    yaxis: { ...PLOTLY_DARK.yaxis, title: "Correlation (r)", range: [-0.3, 1.0] },
+    yaxis: { ...PLOTLY_DARK.yaxis, title: "Correlation (r)", range: [-1, 1] },
   };
 
   Plotly.newPlot("insight-corr-chart", [trace], layout, PLOTLY_CONFIG);
@@ -296,7 +301,6 @@ function renderExtremeEpisodes(extremeData) {
 
   const rows = extremeData.episodes
     .map((ep, idx) => {
-      const aqiScore = Math.min(500, Math.round(400 + (ep.pm25 - 250) * (100 / 250)));
       return `
         <tr>
           <td><strong>#${idx + 1}</strong></td>
@@ -305,10 +309,10 @@ function renderExtremeEpisodes(extremeData) {
           <td style="color: var(--aqi-severe); font-weight: 700;">${ep.pm25} µg/m³</td>
           <td>
             <span class="badge" style="background-color: rgba(153,27,27,0.2); color: var(--aqi-severe); border: 1px solid var(--aqi-severe);">
-              Severe (AQI: ${aqiScore})
+              Ranked among the highest historical city-day means
             </span>
           </td>
-          <td>${ep.readings} continuous station readings</td>
+          <td>${ep.readings} pooled station readings</td>
         </tr>
       `;
     })
@@ -321,9 +325,9 @@ function renderExtremeEpisodes(extremeData) {
           <th>Rank</th>
           <th>Metropolitan Center</th>
           <th>Observation Date</th>
-          <th>24-Hour Mean PM2.5</th>
-          <th>Air Quality Severity</th>
-          <th>Observation Confidence</th>
+          <th>City-Day Mean PM2.5</th>
+          <th>Historical Concentration Context</th>
+          <th>Pooled Station Readings</th>
         </tr>
       </thead>
       <tbody>

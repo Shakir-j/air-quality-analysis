@@ -123,7 +123,7 @@ async function loadFeaturedCityAQ(cityName) {
           <span class="aqi-num-unit">${isLive ? (live.aqi_type || "PM2.5 Sub-Index") : (historicalCompositeAvailable ? "Historical Composite AQI Estimate" : "PM2.5 sub-index; composite unavailable")}</span>
         </div>
         <div class="aqi-primary-pollutant">
-          <strong>Dominant Pollutant:</strong> ${isLive ? (live.main_pollutant || "PM2.5") : (historicalCompositeAvailable ? (lat.dominant_pollutant || lat.main_pollutant || "Unavailable") : "PM2.5 (sub-index only)")}
+          <strong>${!isLive && !historicalCompositeAvailable ? "Index Basis:" : "Dominant Pollutant:"}</strong> ${isLive ? (live.main_pollutant || "PM2.5") : (historicalCompositeAvailable ? (lat.dominant_pollutant || lat.main_pollutant || "Unavailable") : "PM2.5 only (composite AQI unavailable)")}
         </div>
       </div>
 

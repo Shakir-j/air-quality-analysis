@@ -3,7 +3,7 @@
 [![Python](https://img.shields.io/badge/Python-3.13-blue?logo=python&logoColor=white)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/Backend-FastAPI-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
 [![XGBoost](https://img.shields.io/badge/ML-XGBoost-1182C3)](https://xgboost.readthedocs.io/)
-[![Tests](https://img.shields.io/badge/Tests-39%20Passed-brightgreen?logo=pytest&logoColor=white)](tests)
+[![Tests](https://img.shields.io/badge/Tests-54%20Passed-brightgreen?logo=pytest&logoColor=white)](tests)
 
 **AIRWISE** is a local-first web application for exploring historical air-quality observations across Indian cities and generating one-hour-ahead PM2.5 forecasts. It combines interactive historical analysis, city comparisons, environmental insights, maps and a machine-learning prediction interface.
 
@@ -429,7 +429,7 @@ Run the automated test suite from the project root:
 .\.venv\Scripts\python.exe -m pytest -q
 ```
 
-The latest recorded local run passed **39 tests**. A separate browser walkthrough also verified the five application views. The Prediction tab was checked through Chrome DevTools: `POST /api/prediction` returned HTTP `200 OK`, and the UI values matched the API response after display rounding.
+An earlier recorded local run passed **39 tests**; the latest verification on 24 October 2026 passed **54 tests**. A separate browser walkthrough also verified the five application views. The Prediction tab was checked through Chrome DevTools: `POST /api/prediction` returned HTTP `200 OK`, and the UI values matched the API response after display rounding.
 
 The timestamp-boundary regression test is in `tests/test_predictor_time_alignment.py`. It verifies that an observation at 23:00 on Sunday, 31 December 2023, is forecast for 00:00 on Monday, 1 January 2024, with the target hour, month, weekday and weekend features aligned to the forecast target.
 

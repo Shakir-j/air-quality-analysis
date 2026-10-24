@@ -269,14 +269,19 @@ def get_comparison(
             "city": c,
             "mean_pm25": c_info["overall_pm25_mean"],
             "median_pm25": c_info["overall_pm25_median"],
-            "pollutant_avg": c_info["pollutant_averages"].get(pollutant, c_info["overall_pm25_mean"]),
+            "pollutant_avg": c_info["pollutant_averages"].get(pollutant),
             "aqi": c_info["overall_aqi"],
             "category": c_info["overall_category"],
             "color": c_info["overall_color"],
             "stations": c_info["station_count"],
         })
 
-    comparisons.sort(key=lambda x: x["mean_pm25"], reverse=True)
+    comparisons.sort(
+        key=lambda item: (
+            item["pollutant_avg"] is None,
+            -(item["pollutant_avg"] if item["pollutant_avg"] is not None else 0.0),
+        )
+    )
 
     return {
         "status": "success",
